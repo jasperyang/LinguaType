@@ -13,6 +13,8 @@ enum CompanionRegressionTests {
         MenuBarTests.run()
         VocabularyExtractorTests.run()
         DictionaryTests.run()
+        TranslationJobQueueTests.run()
+        DictionaryNetworkingTests.run()
 
         testLoadingStateShowsPanel()
         testTranslationBridgeIsInstalledInPanel()

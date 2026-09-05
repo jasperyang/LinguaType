@@ -1,0 +1,60 @@
+import Foundation
+
+private final class StubDictionaryURLProtocol: URLProtocol {
+    static var handler: ((URLRequest, Int) -> (Int, Data))?
+    static var attempts = 0
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.attempts += 1
+        let result = Self.handler?(request, Self.attempts) ?? (500, Data())
+        let response = HTTPURLResponse(url: request.url!, statusCode: result.0, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: result.1)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+private struct StubDictionaryProvider: DictionaryProvider {
+    let id = "stub"
+    func makeRequest(for query: DictionaryQuery) throws -> URLRequest {
+        URLRequest(url: URL(string: "https://dictionary.invalid/\(query.term)")!)
+    }
+    func decode(_ data: Data, response: HTTPURLResponse, query: DictionaryQuery) throws -> DictionaryEntry? {
+        guard (200..<300).contains(response.statusCode) else { throw DictionaryProviderError.malformedResponse }
+        return try JSONDecoder().decode(DictionaryEntry.self, from: data)
+    }
+}
+
+enum DictionaryNetworkingTests {
+    static func run() {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubDictionaryURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let cacheURL = FileManager.default.temporaryDirectory.appendingPathComponent("network-cache-\(UUID().uuidString).json")
+        let cache = DictionaryCache(fileURL: cacheURL)
+        var logs: [String] = []
+        let service = DictionaryLookupService(session: session, cache: cache, logger: { logs.append($0) })
+        let expected = DictionaryEntry(term: "suit", partOfSpeech: "verb", senses: ["合适"], ipa: "/suːt/", kana: nil, providerID: "stub")
+        let data = try! JSONEncoder().encode(expected)
+        StubDictionaryURLProtocol.attempts = 0
+        StubDictionaryURLProtocol.handler = { _, attempt in attempt == 1 ? (500, Data()) : (200, data) }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var received: DictionaryEntry?
+        service.lookup(provider: StubDictionaryProvider(), query: DictionaryQuery(term: "suit", language: .english)!) { result in
+            received = try? result.get()
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 3)
+
+        Test.expect(StubDictionaryURLProtocol.attempts == 2, "dictionary networking retries one server failure")
+        Test.expect(received == expected, "dictionary networking returns the provider entry")
+        Test.expect(logs.allSatisfy { !$0.contains("suit") }, "dictionary diagnostics never log query terms")
+        try? FileManager.default.removeItem(at: cacheURL)
+    }
+}
