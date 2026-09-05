@@ -1,8 +1,6 @@
 import Foundation
 
-/// User-tweakable preferences for the Companion. Persisted via UserDefaults
-/// under the same keys the IMK variant wrote, so users who previously set
-/// languages with configure-languages.sh don't have to do it twice.
+/// User-tweakable Companion switches persisted via UserDefaults.
 enum LinguaTypePreferences {
     private static let enabledKey = "LinguaType.learningEnabled"
     private static let dictionaryLookupKey = "LinguaType.dictionaryLookupEnabled"
