@@ -1,207 +1,95 @@
-# LinguaType 0.1 — macOS 伴随式语言学习工具
+# LinguaType
 
-LinguaType 在 macOS 26 上以 Companion App 运行：继续使用系统拼音、鼠须管等已安装中文输入法，Companion 通过 Accessibility 读取当前文本，并在光标附近异步显示外语翻译和学习词汇。
+LinguaType 是一个 macOS 菜单栏语言学习助手。你继续使用系统拼音、鼠须管等中文输入法；当中文提交到当前文本框后，LinguaType 在光标附近展示法语、英语、日语表达，以及最多 3 个值得学习的词。
 
-> 重要：源码中仍包含基于 RIMES/InputMethodKit 的 `LinguaType.app`，但本地 ad-hoc 签名的输入法在 macOS 26 无法进入系统 Input Sources。真正发布该输入法需要 Developer ID 签名并经过 Apple notarization；当前一键构建默认安装的是 `LinguaTypeCompanion.app`，不是名为 LinguaType 的系统输入源。
+> 当前产品是 `LinguaTypeCompanion.app`，不是系统输入源。仓库中保留的 RIMES/InputMethodKit 原型需要 Developer ID 签名与 Apple 公证，不能靠本地 ad-hoc 签名稳定加入新版 macOS 的输入法列表。
 
-## 0.1 已实现
+## 当前体验
 
-- 可与系统拼音、鼠须管等现有中文输入法配合使用的 Companion App。
-- 屏幕右上角常驻“字”入口；中文提交后在光标附近显示学习浮层。
-- 独立产品身份：
-  - Bundle ID: `io.linguatype.inputmethod`
-  - Input Source: `io.linguatype.inputmethod.Hans`
-  - App: `LinguaType.app`
-  - Executable: `LinguaType`
-  - Rime 用户目录: `~/Library/RimeLinguaType`
-- 中文候选稳定约 280 ms 后触发学习层。
-- 默认显示：法语 + 英语。
-- 可切换成日语、法语、英语等 Apple Translation 支持的目标语言。
-- Apple Translation 本地翻译，不接 OpenAI/Claude/DeepSeek。
-- 学习层与输入 hot path 分离；翻译失败不影响中文输入。
-- Secure Input / 密码输入场景自动隐藏学习层。
-- 当前高亮候选改变时重新翻译（普通候选左右移动、翻页）。
-- 通过 `NLTokenizer` 从当前中文候选中挑一个学习词，并额外显示词级翻译。
-- 本地记录词汇 exposure：`~/Library/Application Support/LinguaType/learning-exposure.json`。
-- 同一词 30 秒内重复显示只算一次 exposure。
-- 内存翻译缓存，减少当前会话重复翻译。
+- 菜单栏使用原生 `NSStatusItem`，图标为 `A·あ`，不再占用屏幕右上角的浮动“字”方块。
+- 每次中文提交后固定显示法语、英语、日语三行翻译。
+- 最多挑选 3 个有学习价值的词，展示词性、2–3 条中文释义和多语言词形。
+- 英语、法语显示 IPA；日语显示假名和本地生成的罗马字。
+- 结果逐步出现，不等待所有翻译和词典请求完成。
+- 浮窗默认 12 秒后隐藏，鼠标悬停会暂停计时；点击菜单栏图标可重新显示最近结果。
+- 左键点击 `A·あ` 切换浮窗；右键打开学习开关、联网查词、模型状态、清缓存、隐私说明和退出。
 
-## 为什么不是直接给你一个已经编译好的 `.pkg`
+## 隐私边界
 
-本包中的 Swift/InputMethodKit/Translation 代码必须由 macOS 15+ 的 Apple SDK 编译。当前生成本包的环境不是 macOS，因此无法在这里真实运行 Xcode、InputMethodKit、`codesign` 和 `pkgbuild` 验证最终二进制。
+- 完整中文句子只交给 Apple Translation，在本机处理。
+- 联网词典只收到单个词，不收到完整句子、应用名称或窗口标题。
+- 日志只记录字符数、服务名、状态与耗时，不记录原句和查询词。
+- 不使用 OpenAI、Claude、DeepSeek 等生成式 AI 服务。
 
-所以这里交付的是 **Mac 一键构建包**：你不需要自己修改代码。脚本会拉取锁定版本的 RIMES、应用 LinguaType 补丁、构建、注册输入法，并在你的 Mac 上生成本地 `.pkg`。
-
-这比在非 macOS 环境伪造一个“可安装 pkg”可靠得多。
+联网查词使用中文/法语/英语 Wiktionary、Free Dictionary API 和 Jotoba/JMdict。成功结果缓存 30 天；查无结果或临时失败缓存 10 分钟。英语免费词典不可用时自动回退到英语 Wiktionary。
 
 ## 要求
 
 - macOS 15 或更高
-- Apple Silicon 或 Intel Mac
-- Xcode / Xcode Command Line Tools
-- 能访问 GitHub
-- 首次使用某个 Apple Translation 语言时，系统可能需要准备/下载对应翻译模型
+- Xcode Command Line Tools
+- 首次使用法语、英语或日语时，系统可能需要准备 Apple Translation 语言模型
+- Accessibility（辅助功能）权限，用于读取当前聚焦文本框
 
-检查开发工具：
+## 构建和安装
+
+只构建现在实际使用的 Companion：
 
 ```bash
-xcode-select -p
-swift --version
+./build-companion.sh
 ```
 
-如果 `xcode-select -p` 报错，可先安装 Command Line Tools：
+脚本会先运行回归测试，然后构建、ad-hoc 签名并安装到：
 
-```bash
-xcode-select --install
+```text
+~/Applications/LinguaTypeCompanion.app
 ```
 
-## 一键安装
+首次启动后，到“系统设置 → 隐私与安全性 → 辅助功能”，开启 **LinguaType Companion**。随后在 TextEdit、备忘录或聊天软件中用任意中文输入法输入中文即可。
 
-解压后在 Terminal 进入本目录：
+运行测试：
 
 ```bash
-cd ~/Downloads/LinguaType-bootstrap-0.1.0
+./test-companion.sh
+```
+
+旧的完整 RIMES 构建仍可运行：
+
+```bash
 ./build-linguatype.sh
 ```
 
-脚本会：
+它会下载并构建体积较大的 RIMES 工作区。日常开发和更新 Companion 不需要运行它。
 
-1. 克隆 `scholay/rimes`
-2. 锁定到 commit `eba5185a3ed637b6df9ca9149fbfc49740bd58b2`
-3. 应用 LinguaType 身份隔离补丁
-4. 加入 `LinguaTypeLearning.swift`
-5. 构建 librime/RIME 输入法
-6. 构建未公证的 `LinguaType.app` 供后续正式签名，但不注册到 Input Sources
-7. 安装并启动 `~/Applications/LinguaTypeCompanion.app`
-8. 在 `dist/` 生成 `LinguaType-Companion-0.1.0-local.pkg`
-
-完成后先在“系统设置 → 隐私与安全性 → 辅助功能”中允许 **LinguaTypeCompanion**，再用 `Control + Space` 切换到你原有的中文输入法。
-
-右上角“字”入口由 Companion 提供；它不是系统输入源菜单中的一项。
-
-## 默认学习语言
-
-默认：
-
-- 主语言：法语 `fr`
-- 辅助语言：英语 `en`
-
-切换为日语 + 英语：
-
-```bash
-./configure-languages.sh ja en
-```
-
-只想法语：
-
-```bash
-./configure-languages.sh fr off
-```
-
-英语 + 日语：
-
-```bash
-./configure-languages.sh en ja
-```
-
-修改后切走 LinguaType 再切回来一次。
-
-## 当前交互
-
-例如输入拼音得到高亮中文候选：
+## 数据位置
 
 ```text
-这个方案还需要再优化一下
-```
-
-Learning Layer 会异步出现类似：
-
-```text
-语言学习
-🇫🇷  Cette approche doit encore être améliorée.
-🇬🇧  This approach still needs some refinement.
-词汇  优化  →  améliorer / optimize
-```
-
-中文候选窗和学习窗是两条独立链。Apple Translation 慢、语言包不可用或翻译失败时，Rime 中文输入仍继续工作。
-
-## 本地数据
-
-Rime：
-
-```text
-~/Library/RimeLinguaType/
-```
-
-学习 exposure：
-
-```text
+~/Library/Caches/LinguaType/dictionary-cache-v2.json
 ~/Library/Application Support/LinguaType/learning-exposure.json
 ```
 
-0.1 不上传学习历史，不配置任何 LLM API。
+可以从 `A·あ` 右键菜单清除词典缓存。`configure-languages.sh` 现在只负责恢复固定三语和联网查词开关；产品不再支持切换成两种语言。
 
-## 本地 pkg
-
-`build-linguatype.sh` 成功后：
-
-```text
-dist/LinguaType-0.1.0-local.pkg
-```
-
-这是 **本地 unsigned pkg**，不是 Developer ID 签名/Apple notarized 的公开发行包。当前 Mac 已由 build 脚本直接完成 per-user 安装，所以通常不需要再安装 pkg。
-
-如果想把同一次构建拿到另一台自己的 Mac，可将整个目录（含 `dist/`）复制过去并运行：
+## 自动启动与卸载
 
 ```bash
-./install-pkg-on-another-mac.sh
+./activate-linguatype.sh
+./activate-linguatype.sh --status
+./activate-linguatype.sh --uninstall
 ```
 
-管理员密码是系统级 `/Library/Input Methods` 安装所需。
+卸载命令会停止并移除 LaunchAgent，但保留 app；如需完全删除，再移除 `~/Applications/LinguaTypeCompanion.app`。
 
-## 0.1 有意没有做
+## 开发结构
 
-- 设置 GUI（目前用 `configure-languages.sh`）
-- SRS 复习页面
-- 发音
-- CEFR/JLPT 分级
-- AI 语法解释
-- 云同步
-- Anki 导出
-- 用户账户
-- 多设备同步
+- `LinguaTypeCompanion/Sources/`：菜单栏、Accessibility 观察、Apple Translation 桥、学习卡片和词典适配器。
+- `LinguaTypeCompanion/Tests/`：无第三方依赖的 macOS 回归测试。
+- `docs/superpowers/specs/`：已确认的产品与技术设计。
+- `docs/superpowers/plans/`：实现计划。
 
-先验证最关键假设：**“日常中文输入过程中持续看到自己的外语表达”是否真的能带来低摩擦语言学习。**
+输入观察、翻译队列和联网词典彼此隔离；任何学习功能失败都不会影响原本的中文输入。
 
-## 回滚 / 卸载
+## 发布说明
 
-删除用户级安装：
+当前构建是本机 ad-hoc 签名版本，适合开发和自用。向其他用户分发需要 Apple Developer ID 签名和公证。
 
-```bash
-pkill -x LinguaType 2>/dev/null || true
-rm -rf "$HOME/Library/Input Methods/LinguaType.app"
-```
-
-然后注销/登录一次。
-
-如需删除本地学习数据：
-
-```bash
-rm -rf "$HOME/Library/Application Support/LinguaType"
-rm -rf "$HOME/Library/RimeLinguaType"
-```
-
-## 上游与许可证
-
-本构建包不重新分发完整 RIMES 源码，而是在用户机器上从 GitHub 拉取锁定 commit 并应用补丁。RIMES 自有代码使用 MIT License；它携带的 Rime schema、字典、OpenCC/Lua 等资产可能使用各自许可证。构建后请保留上游 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和 `rime-data/licenses/`。
-
-## 开发说明
-
-本包对 RIMES 的侵入点刻意很小：
-
-- `CandidateWindow.update()`：候选更新后通知 Learning Layer
-- `CandidateWindow.moveSelection()`：高亮候选变化后通知
-- `CandidateWindow.movePage()`：翻页后通知
-- `CandidateWindow.hide()/hideAll()`：同步关闭 Learning Layer
-
-翻译桥使用附着在 Learning Panel 内的 1×1 SwiftUI Translation view；这是为了让 `TranslationSession` 保持真实 view lifecycle，而不是在输入事件里直接做网络/翻译工作。
+仓库还没有选择开源许可证。公开可见不等于已授权复制、修改或再分发；正式开放贡献前应补充明确许可证。

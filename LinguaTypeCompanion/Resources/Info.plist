@@ -27,7 +27,7 @@
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSHumanReadableCopyright</key>
-    <string>LinguaType Companion is released under the same license as the rest of this project.</string>
+    <string>Copyright © 2026 LinguaType contributors.</string>
     <key>NSSupportsAutomaticTermination</key>
     <false/>
     <key>NSSupportsSuddenTermination</key>

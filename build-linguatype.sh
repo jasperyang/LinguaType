@@ -225,14 +225,10 @@ Installed app:
 Local unsigned pkg:
   $DIST/LinguaType-Companion-0.1.0-local.pkg
 
-Default learning languages:
-  French + English
+Learning languages:
+  French + English + Japanese
 
-Change them, for example:
-  "$BASE/configure-languages.sh" ja en
-
-The Companion shows a small floating 字 anchor just below the menu bar at
-the top-right of the main screen. It reads whatever Chinese text your IME (Squirrel, SCIM ITABC,
+The Companion shows an A·あ item in the macOS menu bar. It reads whatever Chinese text your IME (Squirrel, SCIM ITABC,
 Baidu, etc.) commits into the focused field via the Accessibility API,
 then asks Apple Translation for a learning overlay.
 
@@ -243,10 +239,8 @@ First-run setup:
      learning panel should appear ~280 ms after the candidate stabilizes.
 
 If the panel never appears:
-  - Confirm the 字 menu item is present; clicking it toggles a one-off
+  - Confirm the A·あ menu item is present; clicking it toggles the most recent
     panel anchored to the mouse.
-  - Confirm the menu bar's 字 → "显示学习浮层" toggles to "隐藏学习浮层"
-    after you click it; if not, the panel was already hidden and your
-    keystrokes never triggered it.
+  - Right-click A·あ and confirm "语言学习" is enabled.
 ============================================================
 EOF

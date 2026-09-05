@@ -1,6 +1,0 @@
-68145bc3378f174a2763f417e53516df7c42dfe69936786aaf32ae17ea318c9d  ./README.md
-a8a9ea1c6027848e69a0314405599883f3aef0c859954a545b075a67fc516645  ./build-linguatype.sh
-956d110af98d0a1b9e50675cd1d4476c3afbabaad46bb45ad45a2a1ee953a49b  ./configure-languages.sh
-cdefa0953a5799a84bfe034d89e416a4d2f713b97287f3c79e0e68120ef201ed  ./install-pkg-on-another-mac.sh
-b471a01c78f3c24999c19e2c2258d0778abd316828ceac9b6aeea0b81e750195  ./patch_linguatype.py
-c714a2a7bc301d81789a2ca6e6323e8235b0f7fc8e3af57cc2b1225651029295  ./patches/LinguaTypeLearning.swift

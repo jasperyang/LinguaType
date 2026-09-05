@@ -27,7 +27,7 @@ final class DictionaryCache {
 
     init(fileURL: URL? = nil, now: @escaping () -> Date = Date.init) {
         self.fileURL = fileURL ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("LinguaType/dictionary-cache-v1.json")
+            .appendingPathComponent("LinguaType/dictionary-cache-v2.json")
         self.now = now
         if let data = try? Data(contentsOf: self.fileURL),
            let decoded = try? JSONDecoder().decode(Document.self, from: data),

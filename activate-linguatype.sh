@@ -21,7 +21,7 @@
 #
 # Exit codes:
 #   0  Success.
-#   1  Companion.app is missing; run build-linguatype.sh first.
+#   1  Companion.app is missing; run build-companion.sh first.
 set -euo pipefail
 
 BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -70,7 +70,7 @@ bootstrap_agent() {
 
 launch_now() {
   if [[ ! -x "$EXE" ]]; then
-    echo "ERROR: $EXE is missing. Run ./build-linguatype.sh first." >&2
+    echo "ERROR: $EXE is missing. Run ./build-companion.sh first." >&2
     exit 1
   fi
   # Use launchctl so the process inherits the user's Aqua session, not a
@@ -78,7 +78,7 @@ launch_now() {
   /bin/launchctl asuser "$(id -u)" /usr/bin/open -g "$APP" 2>/dev/null \
     || /usr/bin/open -g "$APP" 2>/dev/null \
     || true
-  echo "==> LinguaType Companion launched; check the menu bar for 字."
+  echo "==> LinguaType Companion launched; check the menu bar for A·あ."
 }
 
 status() {
@@ -87,7 +87,7 @@ status() {
     echo "    installed:        $APP"
     /usr/bin/codesign --verify --deep --strict "$APP" 2>&1 | head -1 || true
   else
-    echo "    installed:        NO — run ./build-linguatype.sh"
+    echo "    installed:        NO — run ./build-companion.sh"
   fi
   if [[ -f "$LAUNCH_AGENT" ]]; then
     echo "    LaunchAgent:      $LAUNCH_AGENT"
@@ -121,7 +121,7 @@ case "${1:-}" in
 esac
 
 if [[ ! -x "$EXE" ]]; then
-  echo "ERROR: $EXE is missing. Run ./build-linguatype.sh first." >&2
+  echo "ERROR: $EXE is missing. Run ./build-companion.sh first." >&2
   exit 1
 fi
 
@@ -133,7 +133,7 @@ cat <<DONE
 
 ==> Done.
 
-  - LinguaType Companion is running now (menu bar: 字).
+  - LinguaType Companion is running now (menu bar: A·あ).
   - It will auto-start on every GUI login via the LaunchAgent above.
   - First-run setup: System Settings → Privacy & Security → Accessibility
     → enable "LinguaType Companion" so it can read focused text.
