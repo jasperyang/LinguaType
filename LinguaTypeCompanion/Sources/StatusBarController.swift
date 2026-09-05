@@ -1,163 +1,121 @@
 import Cocoa
 
-/// NSPanel subclass that intercepts right-mouse-down so we can pop up the
-/// language menu without the OS treating the click as a left click on the
-/// button.
-private final class AnchorPanel: NSPanel {
-    var onLeftClick: (() -> Void)?
-    var onRightClick: (() -> Void)?
-
-    override func sendEvent(_ event: NSEvent) {
-        if event.type == .leftMouseDown {
-            onLeftClick?()
-        } else if event.type == .rightMouseDown {
-            onRightClick?()
-        } else {
-            super.sendEvent(event)
-        }
-    }
-}
-
-/// Owns the always-visible Companion "anchor" — a small floating window in
-/// the top-right corner of the main screen. macOS 26 menu bars can host
-/// only so many status items; if the user already has many icons, our
-/// NSStatusItem either gets clipped or hidden in the overflow chevron. A
-/// 36×28 floating panel survives that condition and also doubles as the
-/// click target for toggling the translation panel.
 final class StatusBarController: NSObject {
     private let togglePanel: () -> Void
-    private let showPanel: () -> Void
-    private let hidePanel: () -> Void
-    private let isPanelVisible: () -> Bool
+    private let setLearningEnabled: (Bool) -> Void
+    private let setDictionaryLookupEnabled: (Bool) -> Void
+    private let modelStatuses: () -> [LearningLanguage: String]
+    private let clearCache: () -> Void
+    private let showPrivacy: () -> Void
 
-    private var anchorWindow: AnchorPanel!
-    private var primaryItem: NSMenuItem!
-    private var secondaryItem: NSMenuItem!
-    private var menu: NSMenu!
+    private var statusItem: NSStatusItem?
+    private let menu = NSMenu()
+    private var learningItem: NSMenuItem!
+    private var dictionaryItem: NSMenuItem!
+    private var modelItems: [LearningLanguage: NSMenuItem] = [:]
 
-    private(set) var installPath: String = ""
+    private(set) var installPath = ""
 
-    init(togglePanel: @escaping () -> Void,
-         showPanel:   @escaping () -> Void,
-         hidePanel:   @escaping () -> Void,
-         isPanelVisible: @escaping () -> Bool) {
+    init(
+        togglePanel: @escaping () -> Void,
+        setLearningEnabled: @escaping (Bool) -> Void,
+        setDictionaryLookupEnabled: @escaping (Bool) -> Void,
+        modelStatuses: @escaping () -> [LearningLanguage: String],
+        clearCache: @escaping () -> Void,
+        showPrivacy: @escaping () -> Void
+    ) {
         self.togglePanel = togglePanel
-        self.showPanel = showPanel
-        self.hidePanel = hidePanel
-        self.isPanelVisible = isPanelVisible
+        self.setLearningEnabled = setLearningEnabled
+        self.setDictionaryLookupEnabled = setDictionaryLookupEnabled
+        self.modelStatuses = modelStatuses
+        self.clearCache = clearCache
+        self.showPrivacy = showPrivacy
     }
 
     func install() {
-        anchorWindow = AnchorPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 36, height: 28),
-            styleMask: [.borderless, .nonactivatingPanel, .hudWindow],
-            backing: .buffered,
-            defer: false
-        )
-        anchorWindow.level = .statusBar
-        anchorWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        anchorWindow.isOpaque = false
-        anchorWindow.backgroundColor = NSColor(calibratedWhite: 0.18, alpha: 0.85)
-        anchorWindow.hasShadow = true
-        anchorWindow.ignoresMouseEvents = false
-        anchorWindow.hidesOnDeactivate = false
-        anchorWindow.acceptsMouseMovedEvents = true
-
-        anchorWindow.onLeftClick = { [weak self] in self?.togglePanel() }
-        anchorWindow.onRightClick = { [weak self] in self?.showMenu() }
-
-        // The button inside is purely visual — actual click events are routed
-        // through the AnchorPanel override. Having the button also gives
-        // VoiceOver / screen readers a proper control to attach to.
-        let button = NSButton(title: "字", target: nil, action: nil)
-        button.isBordered = false
-        button.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
-        if let cell = button.cell as? NSButtonCell {
-            cell.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        if let statusItem {
+            NSStatusBar.system.removeStatusItem(statusItem)
         }
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.toolTip = "LinguaType Companion — 点击切换浮层，右键切换语言"
 
-        anchorWindow.contentView?.addSubview(button)
-        NSLayoutConstraint.activate([
-            button.centerXAnchor.constraint(equalTo: anchorWindow.contentView!.centerXAnchor),
-            button.centerYAnchor.constraint(equalTo: anchorWindow.contentView!.centerYAnchor),
-            button.widthAnchor.constraint(equalToConstant: 36),
-            button.heightAnchor.constraint(equalToConstant: 28),
-        ])
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = item
+        guard let button = item.button else { return }
+        button.image = MenuBarIcon.make()
+        button.imagePosition = .imageOnly
+        button.toolTip = "LinguaType 语言学习 — 点击显示学习卡片，右键打开设置"
+        button.setAccessibilityLabel("LinguaType 语言学习")
+        button.target = self
+        button.action = #selector(handleStatusItemClick(_:))
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
-        positionInTopRight()
-        anchorWindow.orderFrontRegardless()
-        installPath = "floating window at top-right of main screen"
+        buildMenu()
+        installPath = "macOS menu bar NSStatusItem"
+    }
 
-        menu = NSMenu()
-        primaryItem = NSMenuItem(title: "主语言: \(LinguaTypePreferences.primaryLanguageID)",
-                                 action: #selector(cyclePrimary), keyEquivalent: "")
-        primaryItem.target = self
-        menu.addItem(primaryItem)
+    private func buildMenu() {
+        menu.removeAllItems()
 
-        secondaryItem = NSMenuItem(title: "辅语言: \(LinguaTypePreferences.secondaryLanguageID ?? "off")",
-                                   action: #selector(cycleSecondary), keyEquivalent: "")
-        secondaryItem.target = self
-        menu.addItem(secondaryItem)
-
+        learningItem = item(title: "启用语言学习", action: #selector(toggleLearning))
+        dictionaryItem = item(title: "联网查词", action: #selector(toggleDictionaryLookup))
+        menu.addItem(learningItem)
+        menu.addItem(dictionaryItem)
         menu.addItem(.separator())
 
-        let quit = NSMenuItem(title: "退出 LinguaType Companion", action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
+        for language in LearningLanguage.displayOrder {
+            let status = NSMenuItem(title: "\(language.displayName)模型", action: nil, keyEquivalent: "")
+            status.isEnabled = false
+            modelItems[language] = status
+            menu.addItem(status)
+        }
+
+        menu.addItem(.separator())
+        menu.addItem(item(title: "清除词典缓存", action: #selector(clearDictionaryCache)))
+        menu.addItem(item(title: "隐私说明…", action: #selector(openPrivacy)))
+        menu.addItem(.separator())
+        menu.addItem(item(title: "退出 LinguaType Companion", action: #selector(quit), keyEquivalent: "q"))
+        refreshMenuState()
     }
 
-    private func positionInTopRight() {
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
-        let frame = screen.visibleFrame
-        let size = anchorWindow.frame.size
-        let margin: CGFloat = 8
-        let x = frame.maxX - size.width - margin
-        let y = frame.maxY - size.height - margin
-        anchorWindow.setFrameOrigin(NSPoint(x: x, y: y))
+    private func item(title: String, action: Selector, keyEquivalent: String = "") -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        item.target = self
+        return item
     }
 
-    func showMenu() {
-        guard let menu = self.menu, let view = anchorWindow.contentView else { return }
-        let location = NSEvent.mouseLocation
-        let windowPoint = anchorWindow.convertPoint(fromScreen: location)
-        let viewPoint = view.convert(windowPoint, from: nil)
-        // Show with synthetic event anchored at the mouse so the menu closes
-        // when the user clicks elsewhere.
-        let synthetic = NSEvent.mouseEvent(with: .rightMouseDown,
-                                           location: viewPoint,
-                                           modifierFlags: [],
-                                           timestamp: 0,
-                                           windowNumber: anchorWindow.windowNumber,
-                                           context: nil,
-                                           eventNumber: 0,
-                                           clickCount: 1,
-                                           pressure: 1.0)
-            ?? NSEvent.mouseEvent(with: .leftMouseDown,
-                                  location: viewPoint,
-                                  modifierFlags: [],
-                                  timestamp: 0,
-                                  windowNumber: anchorWindow.windowNumber,
-                                  context: nil,
-                                  eventNumber: 0,
-                                  clickCount: 1,
-                                  pressure: 1.0)
-        guard let synthetic else { return }
-        NSMenu.popUpContextMenu(menu, with: synthetic, for: view)
+    private func refreshMenuState() {
+        learningItem?.state = LinguaTypePreferences.isEnabled ? .on : .off
+        dictionaryItem?.state = LinguaTypePreferences.isDictionaryLookupEnabled ? .on : .off
+        let statuses = modelStatuses()
+        for language in LearningLanguage.displayOrder {
+            modelItems[language]?.title = "\(language.displayName)模型：\(statuses[language] ?? "按需准备")"
+        }
     }
 
-    @objc private func cyclePrimary() {
-        LinguaTypePreferences.cyclePrimary()
-        primaryItem.title = "主语言: \(LinguaTypePreferences.primaryLanguageID)"
+    @objc private func handleStatusItemClick(_ sender: Any?) {
+        if NSApp.currentEvent?.type == .rightMouseUp,
+           let button = statusItem?.button {
+            refreshMenuState()
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY - 4), in: button)
+        } else {
+            togglePanel()
+        }
     }
 
-    @objc private func cycleSecondary() {
-        LinguaTypePreferences.cycleSecondary()
-        secondaryItem.title = "辅语言: \(LinguaTypePreferences.secondaryLanguageID ?? "off")"
+    @objc private func toggleLearning() {
+        let enabled = !LinguaTypePreferences.isEnabled
+        LinguaTypePreferences.setEnabled(enabled)
+        setLearningEnabled(enabled)
+        refreshMenuState()
     }
 
-    @objc private func quit() {
-        NSApplication.shared.terminate(nil)
+    @objc private func toggleDictionaryLookup() {
+        let enabled = !LinguaTypePreferences.isDictionaryLookupEnabled
+        LinguaTypePreferences.setDictionaryLookupEnabled(enabled)
+        setDictionaryLookupEnabled(enabled)
+        refreshMenuState()
     }
+
+    @objc private func clearDictionaryCache() { clearCache() }
+    @objc private func openPrivacy() { showPrivacy() }
+    @objc private func quit() { NSApplication.shared.terminate(nil) }
 }

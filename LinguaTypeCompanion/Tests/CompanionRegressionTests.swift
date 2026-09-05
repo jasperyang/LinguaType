@@ -10,6 +10,7 @@ enum CompanionRegressionTests {
         _ = NSApplication.shared
 
         LearningModelsTests.run()
+        MenuBarTests.run()
 
         testLoadingStateShowsPanel()
         testTranslationBridgeIsInstalledInPanel()
@@ -82,18 +83,10 @@ enum CompanionRegressionTests {
 
         let statusBar = reflectedChild(named: "statusBar", in: appDelegate)
             .flatMap(unwrapOptional)
-        let anchorWindow = statusBar
-            .flatMap { reflectedChild(named: "anchorWindow", in: $0) }
-            .flatMap(unwrapOptional) as? NSWindow
-        let visibleFrames = NSScreen.screens.map(\.visibleFrame)
-        let anchorIsAtTopRight = anchorWindow.map { window in
-            visibleFrames.contains { frame in
-                abs(window.frame.maxX - (frame.maxX - 8)) < 0.5
-                    && abs(window.frame.maxY - (frame.maxY - 8)) < 0.5
-            }
-        } ?? false
-        expect(anchorIsAtTopRight,
-               "application launch positions the Companion anchor at a visible screen's top-right")
+        let installPath = statusBar
+            .flatMap { reflectedChild(named: "installPath", in: $0) } as? String
+        expect(installPath == "macOS menu bar NSStatusItem",
+               "application launch installs controls in the native menu bar")
 
         appDelegate.applicationWillTerminate(
             Notification(name: NSApplication.willTerminateNotification)

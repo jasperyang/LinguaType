@@ -22,9 +22,15 @@ final class LinguaTypeAppDelegate: NSObject, NSApplicationDelegate {
 
         statusBar = StatusBarController(
             togglePanel: { [weak self] in self?.panel.toggleAttachedToMouse() },
-            showPanel:   { [weak self] in self?.panel.showAttachedToMouse() },
-            hidePanel:   { [weak self] in self?.panel.hide() },
-            isPanelVisible: { [weak self] in self?.panel.isVisible ?? false }
+            setLearningEnabled: { [weak self] enabled in
+                if !enabled { self?.coordinator.idle() }
+            },
+            setDictionaryLookupEnabled: { _ in },
+            modelStatuses: {
+                Dictionary(uniqueKeysWithValues: LearningLanguage.displayOrder.map { ($0, "按需准备") })
+            },
+            clearCache: {},
+            showPrivacy: { Self.showPrivacyNotice() }
         )
 
         observer = TranslationObserver(coordinator: coordinator) { [weak self] anchor in
@@ -38,10 +44,6 @@ final class LinguaTypeAppDelegate: NSObject, NSApplicationDelegate {
         panel.hide()
         observer.start()
 
-        // Make sure the app actually shows itself. Without this, launchd's
-        // ProcessType=Background runs don't get a real Aqua handshake and
-        // NSStatusBar items stay invisible.
-        NSApp.activate(ignoringOtherApps: true)
         NSLog("LinguaType Companion: launched. statusItem installed at \(statusBar.installPath). PID=\(ProcessInfo.processInfo.processIdentifier)")
 
         // Ask for Accessibility permission the first time the app runs.
@@ -62,5 +64,13 @@ final class LinguaTypeAppDelegate: NSObject, NSApplicationDelegate {
             // The system will show its own consent UI; we can't bypass it.
             NSLog("LinguaType: Accessibility not yet granted. Open System Settings -> Privacy & Security -> Accessibility and enable LinguaType Companion.")
         }
+    }
+
+    private static func showPrivacyNotice() {
+        let alert = NSAlert()
+        alert.messageText = "LinguaType 隐私说明"
+        alert.informativeText = "完整输入句子只在本机交给 Apple Translation。联网查词仅发送单个关键词，不发送原句、应用名称或窗口标题。"
+        alert.addButton(withTitle: "好")
+        alert.runModal()
     }
 }
