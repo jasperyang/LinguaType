@@ -11,6 +11,7 @@ enum CompanionRegressionTests {
 
         LearningModelsTests.run()
         MenuBarTests.run()
+        VocabularyExtractorTests.run()
 
         testLoadingStateShowsPanel()
         testTranslationBridgeIsInstalledInPanel()
