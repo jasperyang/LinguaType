@@ -25,9 +25,4 @@ enum LinguaTypePreferences {
         UserDefaults.standard.set(enabled, forKey: dictionaryLookupKey)
     }
 
-    // Temporary compatibility for the existing two-row coordinator. These
-    // disappear when the fixed three-language pipeline lands.
-    static var primaryLanguageID: String { LearningLanguage.french.rawValue }
-    static var secondaryLanguageID: String? { LearningLanguage.english.rawValue }
-
 }

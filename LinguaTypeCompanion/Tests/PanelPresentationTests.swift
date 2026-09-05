@@ -1,0 +1,60 @@
+import Cocoa
+
+private final class TestTimerToken: PanelTimerToken {
+    var isCancelled = false
+    func cancel() { isCancelled = true }
+}
+
+private final class TestPanelScheduler: PanelTimerScheduling {
+    struct Scheduled { let deadline: TimeInterval; let token: TestTimerToken; let action: () -> Void }
+    var now: TimeInterval = 0
+    var scheduled: [Scheduled] = []
+
+    func schedule(after interval: TimeInterval, _ action: @escaping () -> Void) -> PanelTimerToken {
+        let token = TestTimerToken()
+        scheduled.append(Scheduled(deadline: now + interval, token: token, action: action))
+        return token
+    }
+
+    func advance(by interval: TimeInterval) {
+        now += interval
+        let due = scheduled.filter { $0.deadline <= now && !$0.token.isCancelled }
+        scheduled.removeAll { $0.deadline <= now }
+        due.forEach { $0.action() }
+    }
+}
+
+enum PanelPresentationTests {
+    static func run() {
+        let view = LearningPanelContentView()
+        view.apply(fixture())
+        Test.expect(view.phraseRows.count == 3, "learning panel renders three fixed phrase rows")
+        Test.expect(view.vocabularyCardViews.count == 3, "learning panel renders all three vocabulary cards")
+
+        let scheduler = TestPanelScheduler()
+        let timer = PanelAutoHideController(interval: 12, scheduler: scheduler)
+        var hidden = false
+        timer.start { hidden = true }
+        scheduler.advance(by: 11)
+        Test.expect(!hidden, "learning panel remains visible before twelve seconds")
+        timer.pointerEntered()
+        scheduler.advance(by: 10)
+        Test.expect(!hidden, "hover pauses panel auto-hide")
+        timer.pointerExited()
+        scheduler.advance(by: 1)
+        Test.expect(hidden, "auto-hide resumes with the remaining delay after hover")
+    }
+
+    private static func fixture() -> LearningDisplayState {
+        let phrases = LearningLanguage.displayOrder.map {
+            PhraseTranslation(language: $0, text: "translated", status: .success)
+        }
+        let terms = LearningLanguage.displayOrder.map {
+            LocalizedTerm(language: $0, term: "term", ipa: $0 == .japanese ? nil : "/ipa/", kana: $0 == .japanese ? "かな" : nil, romanization: $0 == .japanese ? "kana" : nil)
+        }
+        let cards = ["天气", "适合", "散步"].map {
+            VocabularyCard(source: $0, partOfSpeech: "词", chineseSenses: ["中文义项一", "中文义项二"], contextualSense: "中文义项一", terms: terms, status: .complete)
+        }
+        return LearningDisplayState(sourcePhrase: "今天的天气很适合散步", phraseTranslations: phrases, vocabularyCards: cards, phase: .complete)
+    }
+}

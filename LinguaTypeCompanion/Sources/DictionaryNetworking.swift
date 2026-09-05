@@ -31,6 +31,11 @@ final class DictionaryLookupService {
             completion(.success(cached))
             return
         }
+        if cache.hasFreshNegative(for: key) {
+            logger("provider=\(provider.id) cache=negative-hit")
+            completion(.success(nil))
+            return
+        }
 
         do {
             let request = try provider.makeRequest(for: query)
@@ -58,6 +63,7 @@ final class DictionaryLookupService {
                     self.logger("provider=\(provider.id) retry=1 reason=network")
                     self.perform(request: request, provider: provider, query: query, key: key, attempt: 1, completion: completion)
                 } else {
+                    self.cache.storeNegative(for: key)
                     self.logger("provider=\(provider.id) status=network-error elapsed_ms=\(Int(Date().timeIntervalSince(started) * 1000))")
                     completion(.failure(error))
                 }
@@ -74,10 +80,15 @@ final class DictionaryLookupService {
             }
             do {
                 let entry = try provider.decode(data ?? Data(), response: http, query: query)
-                if let entry { self.cache.store(entry, for: key) }
+                if let entry {
+                    self.cache.store(entry, for: key)
+                } else {
+                    self.cache.storeNegative(for: key)
+                }
                 self.logger("provider=\(provider.id) status=\(http.statusCode) elapsed_ms=\(Int(Date().timeIntervalSince(started) * 1000))")
                 completion(.success(entry))
             } catch {
+                self.cache.storeNegative(for: key)
                 self.logger("provider=\(provider.id) status=decode-error elapsed_ms=\(Int(Date().timeIntervalSince(started) * 1000))")
                 completion(.failure(error))
             }

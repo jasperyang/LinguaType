@@ -26,10 +26,8 @@ final class LinguaTypeAppDelegate: NSObject, NSApplicationDelegate {
                 if !enabled { self?.coordinator.idle() }
             },
             setDictionaryLookupEnabled: { _ in },
-            modelStatuses: {
-                Dictionary(uniqueKeysWithValues: LearningLanguage.displayOrder.map { ($0, "按需准备") })
-            },
-            clearCache: {},
+            modelStatuses: { [weak self] in self?.coordinator.modelStatuses() ?? [:] },
+            clearCache: { [weak self] in self?.coordinator.clearDictionaryCache() },
             showPrivacy: { Self.showPrivacyNotice() }
         )
 

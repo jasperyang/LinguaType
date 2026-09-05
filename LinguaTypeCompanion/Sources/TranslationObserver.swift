@@ -59,7 +59,7 @@ final class TranslationObserver {
             return
         }
 
-        NSLog("LinguaType Companion: AX committed text = \(trimmed)")
+        NSLog("%@", PrivacySafeLog.committedText(characterCount: trimmed.count))
         position(rect)
         coordinator.commit(text: trimmed)
     }

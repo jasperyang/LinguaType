@@ -5,6 +5,7 @@ enum DictionaryTests {
         testQueryValidationAndPrivacy()
         testProviderParsing()
         testCacheExpiry()
+        testNegativeCacheExpiry()
         testJapaneseRomanization()
     }
 
@@ -70,6 +71,21 @@ enum DictionaryTests {
 
     private static func testJapaneseRomanization() {
         Test.expect(RomajiTransliterator.romanize(kana: "てきする") == "tekisuru", "Japanese kana is romanized locally")
+    }
+
+    private static func testNegativeCacheExpiry() {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("linguat-negative-cache-\(UUID().uuidString).json")
+        var now = Date(timeIntervalSince1970: 2_000)
+        let cache = DictionaryCache(fileURL: fileURL, now: { now })
+        let key = DictionaryCache.Key(providerID: "english", query: DictionaryQuery(term: "missing", language: .english)!)
+
+        cache.storeNegative(for: key)
+        now.addTimeInterval(9 * 60)
+        Test.expect(cache.hasFreshNegative(for: key), "negative dictionary cache survives for 9 minutes")
+        now.addTimeInterval(2 * 60)
+        Test.expect(!cache.hasFreshNegative(for: key), "negative dictionary cache expires after 10 minutes")
+        try? FileManager.default.removeItem(at: fileURL)
     }
 
     private static func response(for request: URLRequest) -> HTTPURLResponse {

@@ -1,30 +1,48 @@
 import Cocoa
 
-/// Floating NSPanel that the learning coordinator fills with translation
-/// rows. Lives outside the Dock (NSWindow.Level.floating, .nonactivatingPanel
-/// style) so it never steals focus from the field the user is typing in.
-///
-/// The same visual treatment as the IMK variant: NSVisualEffectView with
-/// hudWindow material, three lines (primary translation / secondary /
-/// vocabulary), parked near the caret.
-final class TranslationPanel: NSObject {
-    private weak var coordinator: LearningCoordinator?
+private final class LearningPanelWindow: NSPanel {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+}
 
-    private let panel: NSPanel
-    private let visualEffect = NSVisualEffectView()
-    private let stack = NSStackView()
-    private let titleLabel = NSTextField(labelWithString: "语言学习")
-    private let primaryLabel = NSTextField(labelWithString: "")
-    private let secondaryLabel = NSTextField(labelWithString: "")
-    private let vocabularyLabel = NSTextField(labelWithString: "")
+private final class HoverEffectView: NSVisualEffectView {
+    var onEnter: (() -> Void)?
+    var onExit: (() -> Void)?
+    private var tracking: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { onEnter?() }
+    override func mouseExited(with event: NSEvent) { onExit?() }
+}
+
+final class TranslationPanel: NSObject {
+    private let panel: LearningPanelWindow
+    private let visualEffect = HoverEffectView()
+    private let content = LearningPanelContentView()
+    private let autoHide = PanelAutoHideController(interval: 12)
+    private var lastState: LearningDisplayState?
+    private var lastAnchor: NSRect?
+    private var autoHideStarted = false
 
     init(coordinator: LearningCoordinator) {
-        self.coordinator = coordinator
-
-        panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 460, height: 126),
-                        styleMask: [.borderless, .nonactivatingPanel],
-                        backing: .buffered,
-                        defer: false)
+        panel = LearningPanelWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 220),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
         super.init()
 
         panel.isOpaque = false
@@ -33,128 +51,100 @@ final class TranslationPanel: NSObject {
         panel.level = .popUpMenu
         panel.hidesOnDeactivate = false
         panel.isFloatingPanel = true
-        panel.ignoresMouseEvents = true
-        panel.collectionBehavior = .moveToActiveSpace
+        panel.ignoresMouseEvents = false
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
 
         visualEffect.material = .hudWindow
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
         visualEffect.wantsLayer = true
-        visualEffect.layer?.cornerRadius = 9
+        visualEffect.layer?.cornerRadius = 12
         visualEffect.layer?.masksToBounds = true
-        visualEffect.translatesAutoresizingMaskIntoConstraints = false
         panel.contentView = visualEffect
 
-        titleLabel.font = .systemFont(ofSize: 10, weight: .semibold)
-        titleLabel.textColor = .secondaryLabelColor
-        for label in [primaryLabel, secondaryLabel, vocabularyLabel] {
-            label.font = .systemFont(ofSize: 12.5, weight: .regular)
-            label.textColor = .labelColor
-            label.lineBreakMode = .byTruncatingTail
-            label.maximumNumberOfLines = 2
-            label.translatesAutoresizingMaskIntoConstraints = false
-        }
-        vocabularyLabel.font = .systemFont(ofSize: 11.5, weight: .medium)
-        vocabularyLabel.textColor = .secondaryLabelColor
-
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 5
-        stack.edgeInsets = NSEdgeInsets(top: 9, left: 11, bottom: 9, right: 11)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(titleLabel)
-        stack.addArrangedSubview(primaryLabel)
-        stack.addArrangedSubview(secondaryLabel)
-        stack.addArrangedSubview(vocabularyLabel)
-        visualEffect.addSubview(stack)
-        coordinator.install(into: visualEffect)
-
+        content.translatesAutoresizingMaskIntoConstraints = false
+        visualEffect.addSubview(content)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: visualEffect.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor),
+            content.topAnchor.constraint(equalTo: visualEffect.topAnchor),
+            content.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
         ])
-
+        coordinator.install(into: visualEffect)
         coordinator.onUpdate = { [weak self] state in self?.apply(state) }
+        visualEffect.onEnter = { [weak autoHide] in autoHide?.pointerEntered() }
+        visualEffect.onExit = { [weak autoHide] in autoHide?.pointerExited() }
     }
 
     var isVisible: Bool { panel.isVisible }
 
     func toggleAttachedToMouse() {
-        if panel.isVisible { hide() } else { showAttachedToMouse() }
+        if panel.isVisible {
+            hide()
+        } else {
+            showAttachedToMouse()
+        }
     }
 
     func showAttachedToMouse() {
+        guard let lastState else { return }
+        content.apply(lastState)
         position(near: currentMouseRect())
         panel.orderFrontRegardless()
     }
 
-    func hide() { panel.orderOut(nil) }
+    func hide() {
+        panel.orderOut(nil)
+        autoHide.cancel()
+    }
 
     func position(near anchor: NSRect) {
-        let width: CGFloat = 460
-        let height: CGFloat = vocabularyLabel.stringValue.isEmpty ? 98 : 126
-        let visible = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        lastAnchor = anchor
+        guard let screen = screen(containing: anchor) ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        let visible = screen.visibleFrame
+        let maxHeight = min(560, visible.height * 0.60)
+        let desiredHeight = min(maxHeight, estimatedHeight(for: lastState))
+        let width: CGFloat = 520
+        let gap: CGFloat = 10
+        let margin: CGFloat = 6
+
         var x = anchor.minX
-        var y = anchor.minY - 54 - height
-        if y < visible.minY + 6 { y = anchor.maxY + 54 }
-        x = min(max(x, visible.minX + 6), visible.maxX - width - 6)
-        y = min(max(y, visible.minY + 6), visible.maxY - height - 6)
-        panel.setFrame(NSRect(x: x, y: y, width: width, height: height), display: true)
+        var y = anchor.minY - gap - desiredHeight
+        if y < visible.minY + margin { y = anchor.maxY + gap }
+        x = min(max(x, visible.minX + margin), visible.maxX - width - margin)
+        y = min(max(y, visible.minY + margin), visible.maxY - desiredHeight - margin)
+        panel.setFrame(NSRect(x: x, y: y, width: width, height: desiredHeight), display: true)
+    }
+
+    private func apply(_ state: LearningDisplayState?) {
+        guard let state else {
+            hide()
+            lastState = nil
+            return
+        }
+        lastState = state
+        content.apply(state)
+        position(near: lastAnchor ?? currentMouseRect())
+        panel.orderFrontRegardless()
+
+        if !autoHideStarted, state.phraseTranslations.contains(where: { $0.status != .loading }) {
+            autoHideStarted = true
+            autoHide.start { [weak self] in self?.hide() }
+        }
+        if state.phase == .translatingPhrase { autoHideStarted = false }
+    }
+
+    private func estimatedHeight(for state: LearningDisplayState?) -> CGFloat {
+        guard let state else { return 190 }
+        return 132 + CGFloat(state.vocabularyCards.count) * 116
+    }
+
+    private func screen(containing rect: NSRect) -> NSScreen? {
+        NSScreen.screens.first { $0.frame.intersects(rect) }
     }
 
     private func currentMouseRect() -> NSRect {
         let mouse = NSEvent.mouseLocation
         return NSRect(x: mouse.x - 12, y: mouse.y - 12, width: 24, height: 24)
-    }
-
-    private func apply(_ state: LearningCoordinator.DisplayState) {
-        switch state {
-        case .idle:
-            hide()
-        case .loading(let source):
-            primaryLabel.stringValue = "\(flag(for: LinguaTypePreferences.primaryLanguageID))  ···"
-            secondaryLabel.isHidden = LinguaTypePreferences.secondaryLanguageID == nil
-            if let secondary = LinguaTypePreferences.secondaryLanguageID {
-                secondaryLabel.stringValue = "\(flag(for: secondary))  ···"
-            }
-            if let vocab = source.vocabulary, !vocab.isEmpty {
-                vocabularyLabel.isHidden = false
-                vocabularyLabel.stringValue = "词汇  \(vocab)  →  ···"
-            } else {
-                vocabularyLabel.isHidden = true
-            }
-            panel.orderFrontRegardless()
-        case .translated(let source, let translations):
-            let primary = LinguaTypePreferences.primaryLanguageID
-            let secondary = LinguaTypePreferences.secondaryLanguageID
-            primaryLabel.stringValue = "\(flag(for: primary))  \(translations.primary ?? "···")"
-            secondaryLabel.isHidden = secondary == nil
-            if let secondary {
-                secondaryLabel.stringValue = "\(flag(for: secondary))  \(translations.secondary ?? "···")"
-            }
-            if let vocab = source.vocabulary {
-                let pieces = translations.vocabulary.compactMap { $0 }.filter { !$0.isEmpty }
-                vocabularyLabel.isHidden = false
-                vocabularyLabel.stringValue = pieces.isEmpty
-                    ? "词汇  \(vocab)  →  ···"
-                    : "词汇  \(vocab)  →  \(pieces.joined(separator: "  /  "))"
-            } else {
-                vocabularyLabel.isHidden = true
-            }
-            panel.orderFrontRegardless()
-        }
-    }
-
-    private func flag(for language: String) -> String {
-        let id = language.lowercased()
-        if id.hasPrefix("fr") { return "🇫🇷" }
-        if id.hasPrefix("en") { return "🇬🇧" }
-        if id.hasPrefix("ja") { return "🇯🇵" }
-        if id.hasPrefix("de") { return "🇩🇪" }
-        if id.hasPrefix("es") { return "🇪🇸" }
-        if id.hasPrefix("ko") { return "🇰🇷" }
-        return "🌐"
     }
 }

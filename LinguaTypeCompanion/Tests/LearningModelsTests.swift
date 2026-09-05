@@ -30,5 +30,19 @@ enum LearningModelsTests {
             "online dictionary lookup can be paused"
         )
         LinguaTypePreferences.setDictionaryLookupEnabled(true)
+
+        var emitted: LearningDisplayState?
+        let coordinator = LearningCoordinator.shared
+        coordinator.onUpdate = { emitted = $0 }
+        coordinator.commit(text: "今天的天气很适合散步")
+        Test.expect(
+            emitted?.phraseTranslations.map(\.language) == [.french, .english, .japanese],
+            "a committed phrase immediately publishes three translation rows"
+        )
+        Test.expect(
+            emitted?.vocabularyCards.map(\.source) == ["天气", "适合", "散步"],
+            "a committed phrase immediately publishes up to three vocabulary cards"
+        )
+        coordinator.idle()
     }
 }
