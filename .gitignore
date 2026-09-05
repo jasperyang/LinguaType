@@ -1,0 +1,10 @@
+.DS_Store
+.superpowers/
+.build/
+DerivedData/
+dist/
+work/
+*.app/
+*.bundle/
+*.pkg
+*.xcuserstate

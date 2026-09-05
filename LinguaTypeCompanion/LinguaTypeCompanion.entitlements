@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    <!-- The Companion reads the value of the focused text field via
+         AXUIElementCopyAttributeValue. That requires the user to grant
+         Accessibility permission in System Settings → Privacy & Security;
+         no entitlement toggles that — the OS prompt appears automatically
+         when the process first calls AXIsProcessTrustedWithOptions. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <false/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <false/>
+    <!-- Apple Translation runs in-process; no network entitlement needed.
+         On macOS 26 the Translation framework uses on-device models by
+         default and never makes a network call. -->
+</dict>
+</plist>
