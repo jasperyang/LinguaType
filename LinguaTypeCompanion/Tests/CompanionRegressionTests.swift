@@ -9,15 +9,17 @@ enum CompanionRegressionTests {
     static func main() {
         _ = NSApplication.shared
 
+        LearningModelsTests.run()
+
         testLoadingStateShowsPanel()
         testTranslationBridgeIsInstalledInPanel()
         testAccessibilityBoundsDecodeIntoAppKitCoordinates()
         testApplicationLaunchStartsTextObservation()
 
-        if failures == 0 {
+        if failures == 0 && Test.failures == 0 {
             print("PASS: Companion regression tests")
         } else {
-            print("FAIL: \(failures) Companion regression test(s)")
+            print("FAIL: \(failures + Test.failures) Companion regression test(s)")
             exit(1)
         }
     }

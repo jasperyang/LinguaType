@@ -7,6 +7,7 @@ enum LinguaTypePreferences {
     private static let primaryKey = "LinguaType.primaryLanguage"
     private static let secondaryKey = "LinguaType.secondaryLanguage"
     private static let enabledKey = "LinguaType.learningEnabled"
+    private static let dictionaryLookupKey = "LinguaType.dictionaryLookupEnabled"
 
     static var isEnabled: Bool {
         if UserDefaults.standard.object(forKey: enabledKey) == nil { return true }
@@ -17,6 +18,15 @@ enum LinguaTypePreferences {
         let value = UserDefaults.standard.string(forKey: primaryKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return value?.isEmpty == false ? value! : "fr"
+    }
+
+    static var isDictionaryLookupEnabled: Bool {
+        if UserDefaults.standard.object(forKey: dictionaryLookupKey) == nil { return true }
+        return UserDefaults.standard.bool(forKey: dictionaryLookupKey)
+    }
+
+    static func setDictionaryLookupEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: dictionaryLookupKey)
     }
 
     static var secondaryLanguageID: String? {
