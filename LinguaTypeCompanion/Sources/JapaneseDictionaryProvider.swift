@@ -31,7 +31,7 @@ struct JapaneseDictionaryProvider: DictionaryProvider {
         let senses = Array(word.senses.flatMap(\.glosses).filter { !$0.isEmpty }.prefix(3))
         return DictionaryEntry(
             term: word.reading.kanji ?? word.reading.kana,
-            partOfSpeech: word.senses.first?.pos.first,
+            partOfSpeech: word.senses.first?.pos.compactMap(\.label).first,
             senses: senses,
             ipa: nil,
             kana: word.reading.kana,
@@ -50,6 +50,34 @@ struct JapaneseDictionaryProvider: DictionaryProvider {
     }
     private struct Sense: Decodable {
         let glosses: [String]
-        let pos: [String]
+        let pos: [PartOfSpeech]
+    }
+    private struct PartOfSpeech: Decodable {
+        let label: String?
+
+        init(from decoder: Decoder) throws {
+            if let value = try? decoder.singleValueContainer().decode(String.self) {
+                label = Self.localized(value)
+                return
+            }
+            let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+            label = container.allKeys.first.map { Self.localized($0.stringValue) }
+        }
+
+        private static func localized(_ value: String) -> String {
+            switch value.lowercased() {
+            case let name where name.contains("verb"): return "动词"
+            case let name where name.contains("noun"): return "名词"
+            case let name where name.contains("adjective"): return "形容词"
+            case let name where name.contains("adverb"): return "副词"
+            default: return value
+            }
+        }
+    }
+    private struct DynamicCodingKey: CodingKey {
+        let stringValue: String
+        let intValue: Int? = nil
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { return nil }
     }
 }

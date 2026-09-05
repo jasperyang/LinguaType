@@ -45,7 +45,37 @@ final class DictionaryLookupService {
         }
     }
 
+    func lookup(
+        providers: [any DictionaryProvider],
+        query: DictionaryQuery,
+        completion: @escaping (Result<DictionaryEntry?, Error>) -> Void
+    ) {
+        guard !providers.isEmpty else {
+            completion(.success(nil))
+            return
+        }
+        lookup(providers: providers, query: query, index: 0, completion: completion)
+    }
+
     func clearCache() { cache.clear() }
+
+    private func lookup(
+        providers: [any DictionaryProvider],
+        query: DictionaryQuery,
+        index: Int,
+        completion: @escaping (Result<DictionaryEntry?, Error>) -> Void
+    ) {
+        lookup(provider: providers[index], query: query) { [weak self] result in
+            guard let self else { return }
+            if case .success(let entry?) = result {
+                completion(.success(entry))
+            } else if providers.indices.contains(index + 1) {
+                self.lookup(providers: providers, query: query, index: index + 1, completion: completion)
+            } else {
+                completion(result)
+            }
+        }
+    }
 
     private func perform(
         request: URLRequest,

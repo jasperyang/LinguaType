@@ -20,9 +20,9 @@ private final class StubDictionaryURLProtocol: URLProtocol {
 }
 
 private struct StubDictionaryProvider: DictionaryProvider {
-    let id = "stub"
+    let id: String
     func makeRequest(for query: DictionaryQuery) throws -> URLRequest {
-        URLRequest(url: URL(string: "https://dictionary.invalid/\(query.term)")!)
+        URLRequest(url: URL(string: "https://\(id).dictionary.invalid/\(query.term)")!)
     }
     func decode(_ data: Data, response: HTTPURLResponse, query: DictionaryQuery) throws -> DictionaryEntry? {
         guard (200..<300).contains(response.statusCode) else { throw DictionaryProviderError.malformedResponse }
@@ -32,6 +32,11 @@ private struct StubDictionaryProvider: DictionaryProvider {
 
 enum DictionaryNetworkingTests {
     static func run() {
+        testRetryAndPrivacy()
+        testProviderFallback()
+    }
+
+    private static func testRetryAndPrivacy() {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubDictionaryURLProtocol.self]
         let session = URLSession(configuration: configuration)
@@ -46,7 +51,7 @@ enum DictionaryNetworkingTests {
 
         let semaphore = DispatchSemaphore(value: 0)
         var received: DictionaryEntry?
-        service.lookup(provider: StubDictionaryProvider(), query: DictionaryQuery(term: "suit", language: .english)!) { result in
+        service.lookup(provider: StubDictionaryProvider(id: "stub"), query: DictionaryQuery(term: "suit", language: .english)!) { result in
             received = try? result.get()
             semaphore.signal()
         }
@@ -55,6 +60,39 @@ enum DictionaryNetworkingTests {
         Test.expect(StubDictionaryURLProtocol.attempts == 2, "dictionary networking retries one server failure")
         Test.expect(received == expected, "dictionary networking returns the provider entry")
         Test.expect(logs.allSatisfy { !$0.contains("suit") }, "dictionary diagnostics never log query terms")
+        try? FileManager.default.removeItem(at: cacheURL)
+    }
+
+    private static func testProviderFallback() {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubDictionaryURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let cacheURL = FileManager.default.temporaryDirectory.appendingPathComponent("fallback-cache-\(UUID().uuidString).json")
+        let expected = DictionaryEntry(term: "suit", partOfSpeech: "动词", senses: ["合适"], ipa: "/suːt/", kana: nil, providerID: "fallback")
+        let data = try! JSONEncoder().encode(expected)
+        StubDictionaryURLProtocol.attempts = 0
+        StubDictionaryURLProtocol.handler = { request, _ in
+            request.url?.host?.hasPrefix("primary") == true ? (500, Data()) : (200, data)
+        }
+
+        let service = DictionaryLookupService(
+            session: session,
+            cache: DictionaryCache(fileURL: cacheURL),
+            logger: { _ in }
+        )
+        let semaphore = DispatchSemaphore(value: 0)
+        var received: DictionaryEntry?
+        service.lookup(
+            providers: [StubDictionaryProvider(id: "primary"), StubDictionaryProvider(id: "fallback")],
+            query: DictionaryQuery(term: "suit", language: .english)!
+        ) { result in
+            received = try? result.get()
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 3)
+
+        Test.expect(StubDictionaryURLProtocol.attempts == 3, "dictionary provider fallback runs after one primary retry")
+        Test.expect(received == expected, "dictionary provider fallback returns the backup entry")
         try? FileManager.default.removeItem(at: cacheURL)
     }
 }

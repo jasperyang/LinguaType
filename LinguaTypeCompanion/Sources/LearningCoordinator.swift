@@ -166,36 +166,36 @@ final class LearningCoordinator {
     private func lookupChineseCard(index: Int, generation: UInt64) {
         guard let state, state.vocabularyCards.indices.contains(index),
               let query = DictionaryQuery(term: state.vocabularyCards[index].source, language: .chinese) else { return }
-        lookup(provider: WiktionaryDictionaryProvider(language: .chinese), query: query, cardID: index, language: nil, generation: generation)
+        lookup(providers: [WiktionaryDictionaryProvider(language: .chinese)], query: query, cardID: index, language: nil, generation: generation)
     }
 
     private func lookupTargetCard(index: Int, language: LearningLanguage, term: String, generation: UInt64) {
         let dictionaryLanguage: DictionaryLanguage
-        let provider: any DictionaryProvider
+        let providers: [any DictionaryProvider]
         switch language {
         case .french:
             dictionaryLanguage = .french
-            provider = WiktionaryDictionaryProvider(language: .french)
+            providers = [WiktionaryDictionaryProvider(language: .french)]
         case .english:
             dictionaryLanguage = .english
-            provider = EnglishDictionaryProvider()
+            providers = [EnglishDictionaryProvider(), WiktionaryDictionaryProvider(language: .english)]
         case .japanese:
             dictionaryLanguage = .japanese
-            provider = JapaneseDictionaryProvider()
+            providers = [JapaneseDictionaryProvider()]
         }
         guard let query = DictionaryQuery(term: term, language: dictionaryLanguage) else { return }
-        lookup(provider: provider, query: query, cardID: index, language: language, generation: generation)
+        lookup(providers: providers, query: query, cardID: index, language: language, generation: generation)
     }
 
     private func lookup(
-        provider: any DictionaryProvider,
+        providers: [any DictionaryProvider],
         query: DictionaryQuery,
         cardID: Int,
         language: LearningLanguage?,
         generation: UInt64
     ) {
         pendingLookups += 1
-        dictionaryService.lookup(provider: provider, query: query) { [weak self] result in
+        dictionaryService.lookup(providers: providers, query: query) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.pendingLookups = max(0, self.pendingLookups - 1)

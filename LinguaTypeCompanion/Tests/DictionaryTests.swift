@@ -40,18 +40,32 @@ enum DictionaryTests {
         Test.expect(enEntry?.ipa == "/suːt/", "English dictionary returns IPA")
         Test.expect(enEntry?.senses == ["be convenient for", "meet the needs of"], "English dictionary returns multiple senses")
 
-        let japaneseJSON = #"{"words":[{"reading":{"kana":"てきする","kanji":"適する","furigana":"[適|てき]する"},"common":true,"senses":[{"glosses":["to fit","to suit"],"pos":["verb"],"language":"English"}],"pitch":[]}],"kanji":[]}"#.data(using: .utf8)!
+        let japaneseJSON = #"{"words":[{"reading":{"kana":"てきする","kanji":"適する","furigana":"[適|てき]する"},"common":true,"senses":[{"glosses":["to fit","to suit"],"pos":[{"Verb":{"Irregular":"SuruSpecial"}},{"Verb":"Intransitive"}],"language":"English"}],"pitch":[]}],"kanji":[]}"#.data(using: .utf8)!
         let japanese = JapaneseDictionaryProvider()
         let jaQuery = DictionaryQuery(term: "適する", language: .japanese)!
         let jaEntry = try? japanese.decode(japaneseJSON, response: response(for: try! japanese.makeRequest(for: jaQuery)), query: jaQuery)
         Test.expect(jaEntry?.kana == "てきする", "Japanese dictionary returns kana")
         Test.expect(jaEntry?.senses == ["to fit", "to suit"], "Japanese dictionary returns multiple senses")
+        Test.expect(jaEntry?.partOfSpeech == "动词", "Japanese dictionary normalizes structured JMdict parts of speech")
 
-        let wikiJSON = #"{"parse":{"text":{"*":"<h3><span>动词</span></h3><p><span class=\"IPA\">/ʂʐ̩⁵¹ xɤ³⁵/</span></p><ol><li>合适；符合条件。</li><li>适宜用于某种情况。</li></ol>"}}}"#.data(using: .utf8)!
+        let wikiJSON = #"{"parse":{"title":"適合","wikitext":{"*":"==漢語==\n===發音===\n{{zh-pron|m=shìhé}}\n===動詞===\n{{zh-verb}}\n# [[配合]]得[[恰到好處]]\n# [[符合]]某種條件\n==日語==\n===名詞===\n# [[適宜]]"}}}"#.data(using: .utf8)!
         let wiki = WiktionaryDictionaryProvider(language: .chinese)
         let zhQuery = DictionaryQuery(term: "适合", language: .chinese)!
         let zhEntry = try? wiki.decode(wikiJSON, response: response(for: try! wiki.makeRequest(for: zhQuery)), query: zhQuery)
-        Test.expect(zhEntry?.senses == ["合适；符合条件。", "适宜用于某种情况。"], "Wiktionary returns clean Chinese senses")
+        Test.expect(zhEntry?.senses == ["配合得恰到好處", "符合某種條件"], "Wiktionary scopes clean senses to the Chinese section")
+
+        let frenchJSON = #"{"parse":{"title":"convenir","wikitext":{"*":"== {{langue|fr}} ==\n=== {{S|verbe|fr}} ===\n'''convenir''' {{pron|kɔ̃v.niʁ|fr}}\n# [[Être]] [[convenable]], [[approprié]] ou [[adéquat]].\n# {{impersonnel|fr}} Être [[souhaitable]].\n== {{langue|es}} ==\n# [[convenir#fr|Convenir]]."}}}"#.data(using: .utf8)!
+        let french = WiktionaryDictionaryProvider(language: .french)
+        let frQuery = DictionaryQuery(term: "convenir", language: .french)!
+        let frEntry = try? french.decode(frenchJSON, response: response(for: try! french.makeRequest(for: frQuery)), query: frQuery)
+        Test.expect(frEntry?.ipa == "/kɔ̃v.niʁ/", "French Wiktionary returns IPA")
+        Test.expect(frEntry?.senses == ["Être convenable, approprié ou adéquat.", "Être souhaitable."], "French Wiktionary returns clean French senses")
+
+        let fallbackJSON = #"{"parse":{"title":"suit","wikitext":{"*":"==English==\n===Pronunciation===\n* {{IPA|en|/suːt/|aa=modern RP}}\n===Verb===\n# {{lb|en|transitive}} To make [[proper]] or [[suitable]].\n# To [[please]]; to make content.\n==French==\n# {{inflection of|fr|suivre}}"}}}"#.data(using: .utf8)!
+        let fallback = WiktionaryDictionaryProvider(language: .english)
+        let fallbackEntry = try? fallback.decode(fallbackJSON, response: response(for: try! fallback.makeRequest(for: enQuery)), query: enQuery)
+        Test.expect(fallbackEntry?.ipa == "/suːt/", "English Wiktionary fallback returns IPA")
+        Test.expect(fallbackEntry?.senses == ["To make proper or suitable.", "To please; to make content."], "English Wiktionary fallback returns scoped definitions")
     }
 
     private static func testCacheExpiry() {
