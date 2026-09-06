@@ -5,18 +5,76 @@ enum DictionaryLookupError: Error {
     case serverStatus(Int)
 }
 
+final class DictionaryRequestLimiter {
+    private struct Pending {
+        let providerID: String
+        let start: () -> Void
+    }
+
+    private let globalLimit: Int
+    private let providerLimit: Int
+    private let lock = NSLock()
+    private var activeTotal = 0
+    private var activeByProvider: [String: Int] = [:]
+    private var pending: [Pending] = []
+
+    init(globalLimit: Int = 4, providerLimit: Int = 2) {
+        self.globalLimit = globalLimit
+        self.providerLimit = providerLimit
+    }
+
+    func enqueue(providerID: String, start: @escaping () -> Void) {
+        lock.lock()
+        if canStart(providerID: providerID) {
+            markStarted(providerID: providerID)
+            lock.unlock()
+            start()
+        } else {
+            pending.append(Pending(providerID: providerID, start: start))
+            lock.unlock()
+        }
+    }
+
+    func finish(providerID: String) {
+        var starts: [() -> Void] = []
+        lock.lock()
+        activeTotal = max(0, activeTotal - 1)
+        activeByProvider[providerID] = max(0, (activeByProvider[providerID] ?? 0) - 1)
+        while activeTotal < globalLimit,
+              let index = pending.firstIndex(where: { canStart(providerID: $0.providerID) }) {
+            let next = pending.remove(at: index)
+            markStarted(providerID: next.providerID)
+            starts.append(next.start)
+        }
+        lock.unlock()
+        starts.forEach { $0() }
+    }
+
+    private func canStart(providerID: String) -> Bool {
+        activeTotal < globalLimit && (activeByProvider[providerID] ?? 0) < providerLimit
+    }
+
+    private func markStarted(providerID: String) {
+        activeTotal += 1
+        activeByProvider[providerID, default: 0] += 1
+    }
+}
+
 final class DictionaryLookupService {
     private let session: URLSession
     private let cache: DictionaryCache
+    private let limiter: DictionaryRequestLimiter
     private let logger: (String) -> Void
 
     init(
         session: URLSession = .shared,
         cache: DictionaryCache = DictionaryCache(),
+        limiter: DictionaryRequestLimiter = DictionaryRequestLimiter(),
         logger: @escaping (String) -> Void = { NSLog("LinguaType dictionary: \($0)") }
     ) {
         self.session = session
         self.cache = cache
+        self.limiter = limiter
         self.logger = logger
     }
 
@@ -39,7 +97,13 @@ final class DictionaryLookupService {
 
         do {
             let request = try provider.makeRequest(for: query)
-            perform(request: request, provider: provider, query: query, key: key, attempt: 0, completion: completion)
+            limiter.enqueue(providerID: provider.id) { [weak self] in
+                guard let self else { return }
+                self.perform(request: request, provider: provider, query: query, key: key, attempt: 0) { result in
+                    self.limiter.finish(providerID: provider.id)
+                    completion(result)
+                }
+            }
         } catch {
             completion(.failure(error))
         }

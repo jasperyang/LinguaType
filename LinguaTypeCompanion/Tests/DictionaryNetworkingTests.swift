@@ -32,8 +32,23 @@ private struct StubDictionaryProvider: DictionaryProvider {
 
 enum DictionaryNetworkingTests {
     static func run() {
+        testConcurrencyLimiter()
         testRetryAndPrivacy()
         testProviderFallback()
+    }
+
+    private static func testConcurrencyLimiter() {
+        let limiter = DictionaryRequestLimiter(globalLimit: 4, providerLimit: 2)
+        var started: [String] = []
+        for label in ["a1", "a2", "a3", "b1", "b2", "b3"] {
+            limiter.enqueue(providerID: String(label.prefix(1))) { started.append(label) }
+        }
+        Test.expect(started == ["a1", "a2", "b1", "b2"], "dictionary networking limits four global and two per provider")
+
+        limiter.finish(providerID: "a")
+        Test.expect(started.last == "a3", "dictionary networking starts the next eligible provider request")
+        limiter.finish(providerID: "b")
+        Test.expect(started.last == "b3", "dictionary networking drains queued requests fairly")
     }
 
     private static func testRetryAndPrivacy() {
