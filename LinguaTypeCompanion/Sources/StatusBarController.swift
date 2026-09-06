@@ -8,7 +8,7 @@ final class StatusBarController: NSObject {
     private let clearCache: () -> Void
     private let showPrivacy: () -> Void
 
-    private var statusItem: NSStatusItem?
+    private(set) var statusItem: NSStatusItem?
     private let menu = NSMenu()
     private var learningItem: NSMenuItem!
     private var dictionaryItem: NSMenuItem!
@@ -37,7 +37,19 @@ final class StatusBarController: NSObject {
             NSStatusBar.system.removeStatusItem(statusItem)
         }
 
+        let autosaveName = "LinguaType"
+        let preferredPositionKey = "NSStatusItem Preferred Position \(autosaveName)"
+        if UserDefaults.standard.object(forKey: preferredPositionKey) == nil {
+            // New status items are normally appended at the far-left edge of
+            // the extras area. On a crowded notched display that edge is
+            // physically obscured, so seed a right-side position once. The
+            // user can still Command-drag the item anywhere afterwards.
+            UserDefaults.standard.set(180, forKey: preferredPositionKey)
+        }
+
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.autosaveName = autosaveName
+        item.isVisible = true
         statusItem = item
         guard let button = item.button else { return }
         button.image = MenuBarIcon.make()

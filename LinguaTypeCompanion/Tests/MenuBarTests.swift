@@ -31,5 +31,13 @@ enum MenuBarTests {
             controller.installPath == "macOS menu bar NSStatusItem",
             "controls are installed in the native menu bar"
         )
+        Test.expect(
+            controller.statusItem?.autosaveName == "LinguaType",
+            "menu bar item has a stable persisted position identity"
+        )
+        Test.expect(
+            controller.statusItem?.isVisible == true,
+            "menu bar item explicitly restores visible state"
+        )
     }
 }
