@@ -15,6 +15,16 @@ enum LearningLanguage: String, CaseIterable, Codable, Equatable {
         }
     }
 
+    var shortCode: String { rawValue.uppercased() == "JA" ? "JP" : rawValue.uppercased() }
+
+    var nativeName: String {
+        switch self {
+        case .french: return "Français"
+        case .english: return "English"
+        case .japanese: return "日本語"
+        }
+    }
+
     var flag: String {
         switch self {
         case .french: return "🇫🇷"
