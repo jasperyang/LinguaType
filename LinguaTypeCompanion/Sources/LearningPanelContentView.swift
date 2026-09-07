@@ -3,30 +3,79 @@ import Cocoa
 final class LearningPanelContentView: NSView {
     private let rootStack = NSStackView()
     private let sourceLabel = NSTextField(wrappingLabelWithString: "")
-    private let phraseStack = NSStackView()
     private let scrollView = NSScrollView()
     private let vocabularyStack = NSStackView()
+    private let headerView: PanelHeaderView
+    private let translationSection: TranslationSectionView
 
     private(set) var phraseRows: [NSTextField] = []
     private(set) var vocabularyCardViews: [NSView] = []
+    var onSelectionChange: ((LanguageSelection) -> Void)?
+    var onTogglePin: (() -> Void)?
 
-    override init(frame frameRect: NSRect) {
+    var languageButtonTitle: String { headerView.languageButtonTitle }
+    var primaryLanguage: LearningLanguage? { translationSection.primaryLanguage }
+    var referenceLanguages: [LearningLanguage] { translationSection.referenceLanguages }
+    var copyButtonLanguages: [LearningLanguage] { translationSection.copyButtonLanguages }
+    var renderedLanguageCodes: [String] { translationSection.renderedLanguageCodes }
+    var expandedReference: LearningLanguage? { translationSection.expandedReference }
+
+    override convenience init(frame frameRect: NSRect) {
+        self.init(frame: frameRect, clipboard: SystemTranslationClipboard())
+    }
+
+    init(frame frameRect: NSRect, clipboard: TranslationClipboardWriting) {
+        headerView = PanelHeaderView(selection: .default)
+        translationSection = TranslationSectionView(
+            copyService: TranslationCopyService(clipboard: clipboard)
+        )
         super.init(frame: frameRect)
+        wireActions()
         build()
     }
 
     required init?(coder: NSCoder) { nil }
 
     func apply(_ state: LearningDisplayState) {
+        apply(state, selection: .default, isPinned: false)
+    }
+
+    func apply(
+        _ state: LearningDisplayState,
+        selection: LanguageSelection,
+        isPinned: Bool
+    ) {
         sourceLabel.stringValue = state.sourcePhrase
-        phraseRows.forEach { phraseStack.removeArrangedSubview($0); $0.removeFromSuperview() }
-        phraseRows = state.phraseTranslations.map(makePhraseRow)
-        phraseRows.forEach(phraseStack.addArrangedSubview)
+        headerView.apply(selection: selection, isPinned: isPinned)
+        translationSection.apply(
+            translations: state.phraseTranslations,
+            selection: selection,
+            sourcePhrase: state.sourcePhrase
+        )
+        phraseRows = translationSection.phraseLabels
 
         vocabularyCardViews.forEach { vocabularyStack.removeArrangedSubview($0); $0.removeFromSuperview() }
         vocabularyCardViews = state.vocabularyCards.prefix(3).map(makeVocabularyCard)
         vocabularyCardViews.forEach(vocabularyStack.addArrangedSubview)
         scrollView.isHidden = vocabularyCardViews.isEmpty
+    }
+
+    func toggleReference(_ language: LearningLanguage) {
+        translationSection.toggleReference(language)
+        phraseRows = translationSection.phraseLabels
+    }
+
+    func copyButton(for language: LearningLanguage) -> NSButton? {
+        translationSection.copyButton(for: language)
+    }
+
+    private func wireActions() {
+        headerView.onSelectionChange = { [weak self] selection in
+            self?.onSelectionChange?(selection)
+        }
+        headerView.onTogglePin = { [weak self] in
+            self?.onTogglePin?()
+        }
     }
 
     private func build() {
@@ -37,14 +86,9 @@ final class LearningPanelContentView: NSView {
         rootStack.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
         rootStack.translatesAutoresizingMaskIntoConstraints = false
 
-        let title = label("LINGUATYPE · 语言学习", size: 10, weight: .semibold, color: .secondaryLabelColor)
         sourceLabel.font = .systemFont(ofSize: 14, weight: .semibold)
         sourceLabel.textColor = .labelColor
         sourceLabel.maximumNumberOfLines = 2
-
-        phraseStack.orientation = .vertical
-        phraseStack.alignment = .leading
-        phraseStack.spacing = 6
 
         vocabularyStack.orientation = .vertical
         vocabularyStack.alignment = .leading
@@ -68,9 +112,9 @@ final class LearningPanelContentView: NSView {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.heightAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
 
-        rootStack.addArrangedSubview(title)
+        rootStack.addArrangedSubview(headerView)
         rootStack.addArrangedSubview(sourceLabel)
-        rootStack.addArrangedSubview(phraseStack)
+        rootStack.addArrangedSubview(translationSection)
         rootStack.addArrangedSubview(scrollView)
         addSubview(rootStack)
         NSLayoutConstraint.activate([
@@ -78,20 +122,11 @@ final class LearningPanelContentView: NSView {
             rootStack.trailingAnchor.constraint(equalTo: trailingAnchor),
             rootStack.topAnchor.constraint(equalTo: topAnchor),
             rootStack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            headerView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             sourceLabel.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
-            phraseStack.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
+            translationSection.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             scrollView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
         ])
-    }
-
-    private func makePhraseRow(_ translation: PhraseTranslation) -> NSTextField {
-        let value: String
-        switch translation.status {
-        case .loading: value = "···"
-        case .success: value = translation.text ?? "···"
-        case .failure(let message): value = message
-        }
-        return label("\(translation.language.flag)  \(translation.language.displayName)  \(value)", size: 12.5, weight: .regular, color: .labelColor)
     }
 
     private func makeVocabularyCard(_ card: VocabularyCard) -> NSView {
