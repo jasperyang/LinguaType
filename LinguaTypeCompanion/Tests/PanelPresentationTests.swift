@@ -70,6 +70,33 @@ enum PanelPresentationTests {
         Test.expect(!pinnedHidden, "unpin starts a fresh twelve-second deadline")
         pinnedScheduler.advance(by: 1)
         Test.expect(pinnedHidden, "unpinned panel hides after the fresh deadline")
+
+        let integrationScheduler = TestPanelScheduler()
+        let integrationTimer = PanelAutoHideController(
+            interval: 12,
+            scheduler: integrationScheduler
+        )
+        let coordinator = LearningCoordinator(
+            languageSelection: .default,
+            persistSelection: { _ in }
+        )
+        let panel = TranslationPanel(
+            coordinator: coordinator,
+            autoHide: integrationTimer
+        )
+        panel.apply(fixture())
+        panel.performPinAction()
+        Test.expect(panel.isPinned, "panel header pin action fixes the panel in place")
+        panel.apply(nil)
+        Test.expect(
+            panel.isVisible,
+            "pinned panel survives a temporary non-Chinese focus state"
+        )
+        integrationScheduler.advance(by: 30)
+        Test.expect(panel.isVisible, "pinned panel remains visible beyond auto-hide deadline")
+        panel.performPinAction()
+        integrationScheduler.advance(by: 12)
+        Test.expect(!panel.isVisible, "unpinning restores the twelve-second auto-hide")
     }
 
     private static func fixture() -> LearningDisplayState {

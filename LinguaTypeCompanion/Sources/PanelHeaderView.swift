@@ -34,6 +34,10 @@ final class PanelHeaderView: NSView {
         pinButton.setAccessibilityLabel(isPinned ? "取消固定浮窗" : "固定浮窗")
     }
 
+    func performPinAction() {
+        pinButton.performClick(nil)
+    }
+
     private func build() {
         brandLabel.font = .systemFont(ofSize: 10, weight: .semibold)
         brandLabel.textColor = .secondaryLabelColor

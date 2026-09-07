@@ -31,12 +31,18 @@ final class TranslationPanel: NSObject {
     private let panel: LearningPanelWindow
     private let visualEffect = HoverEffectView()
     private let content = LearningPanelContentView()
-    private let autoHide = PanelAutoHideController(interval: 12)
+    private let autoHide: PanelAutoHideController
+    private weak var coordinator: LearningCoordinator?
     private var lastState: LearningDisplayState?
     private var lastAnchor: NSRect?
     private var autoHideStarted = false
 
-    init(coordinator: LearningCoordinator) {
+    init(
+        coordinator: LearningCoordinator,
+        autoHide: PanelAutoHideController = PanelAutoHideController(interval: 12)
+    ) {
+        self.coordinator = coordinator
+        self.autoHide = autoHide
         panel = LearningPanelWindow(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 220),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -72,11 +78,16 @@ final class TranslationPanel: NSObject {
         ])
         coordinator.install(into: visualEffect)
         coordinator.onUpdate = { [weak self] state in self?.apply(state) }
+        content.onSelectionChange = { [weak coordinator] selection in
+            coordinator?.setLanguageSelection(selection)
+        }
+        content.onTogglePin = { [weak self] in self?.togglePinned() }
         visualEffect.onEnter = { [weak autoHide] in autoHide?.pointerEntered() }
         visualEffect.onExit = { [weak autoHide] in autoHide?.pointerExited() }
     }
 
     var isVisible: Bool { panel.isVisible }
+    var isPinned: Bool { autoHide.isPinned }
 
     func toggleAttachedToMouse() {
         if panel.isVisible {
@@ -88,14 +99,28 @@ final class TranslationPanel: NSObject {
 
     func showAttachedToMouse() {
         guard let lastState else { return }
-        content.apply(lastState)
+        refreshContent(with: lastState)
         position(near: currentMouseRect())
         panel.orderFrontRegardless()
+        startAutoHideIfNeeded(for: lastState)
     }
 
     func hide() {
         panel.orderOut(nil)
+        content.cancelTransientFeedback()
         autoHide.cancel()
+        autoHideStarted = false
+    }
+
+    func performPinAction() {
+        content.performPinAction()
+    }
+
+    func togglePinned() {
+        autoHide.setPinned(!autoHide.isPinned)
+        if let lastState {
+            refreshContent(with: lastState)
+        }
     }
 
     func position(near anchor: NSRect) {
@@ -116,22 +141,43 @@ final class TranslationPanel: NSObject {
         panel.setFrame(NSRect(x: x, y: y, width: width, height: desiredHeight), display: true)
     }
 
-    private func apply(_ state: LearningDisplayState?) {
+    func apply(_ state: LearningDisplayState?) {
         guard let state else {
+            if autoHide.isPinned, lastState != nil {
+                return
+            }
             hide()
             lastState = nil
             return
         }
         lastState = state
-        content.apply(state)
+        refreshContent(with: state)
         position(near: lastAnchor ?? currentMouseRect())
         panel.orderFrontRegardless()
 
-        if !autoHideStarted, state.phraseTranslations.contains(where: { $0.status != .loading }) {
-            autoHideStarted = true
-            autoHide.start { [weak self] in self?.hide() }
+        if state.phase == .translatingPhrase {
+            autoHide.cancel()
+            autoHideStarted = false
+        } else {
+            startAutoHideIfNeeded(for: state)
         }
-        if state.phase == .translatingPhrase { autoHideStarted = false }
+    }
+
+    private func refreshContent(with state: LearningDisplayState) {
+        content.apply(
+            state,
+            selection: coordinator?.languageSelection ?? .default,
+            isPinned: autoHide.isPinned
+        )
+    }
+
+    private func startAutoHideIfNeeded(for state: LearningDisplayState) {
+        guard !autoHideStarted,
+              state.phraseTranslations.contains(where: { $0.status != .loading }) else {
+            return
+        }
+        autoHideStarted = true
+        autoHide.start { [weak self] in self?.hide() }
     }
 
     private func estimatedHeight(for state: LearningDisplayState?) -> CGFloat {

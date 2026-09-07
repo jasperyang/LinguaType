@@ -39,5 +39,9 @@ enum MenuBarTests {
             controller.statusItem?.isVisible == true,
             "menu bar item explicitly restores visible state"
         )
+        Test.expect(
+            controller.modelStatusLanguages == Set(LearningLanguage.displayOrder),
+            "menu keeps model statuses for every supported language"
+        )
     }
 }

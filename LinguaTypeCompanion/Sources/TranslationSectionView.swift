@@ -57,6 +57,10 @@ final class TranslationSectionView: NSView {
         rows[language]?.copyButton
     }
 
+    func cancelCopyFeedback() {
+        rows.values.forEach { $0.cancelCopyFeedback() }
+    }
+
     private func build() {
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -269,5 +273,13 @@ private final class TranslationRowView: NSView {
         }
         resetCopyWorkItem = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: item)
+    }
+
+    func cancelCopyFeedback() {
+        resetCopyWorkItem?.cancel()
+        resetCopyWorkItem = nil
+        copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: "复制译文")
+        copyButton.contentTintColor = .secondaryLabelColor
+        copyButton.setAccessibilityLabel("复制\(translation.language.displayName)译文")
     }
 }

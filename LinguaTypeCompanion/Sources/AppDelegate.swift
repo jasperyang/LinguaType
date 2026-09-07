@@ -23,7 +23,10 @@ final class LinguaTypeAppDelegate: NSObject, NSApplicationDelegate {
         statusBar = StatusBarController(
             togglePanel: { [weak self] in self?.panel.toggleAttachedToMouse() },
             setLearningEnabled: { [weak self] enabled in
-                if !enabled { self?.coordinator.idle() }
+                if !enabled {
+                    self?.coordinator.idle()
+                    self?.panel.hide()
+                }
             },
             setDictionaryLookupEnabled: { _ in },
             modelStatuses: { [weak self] in self?.coordinator.modelStatuses() ?? [:] },

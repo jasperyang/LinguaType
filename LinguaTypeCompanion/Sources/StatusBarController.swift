@@ -15,6 +15,7 @@ final class StatusBarController: NSObject {
     private var modelItems: [LearningLanguage: NSMenuItem] = [:]
 
     private(set) var installPath = ""
+    var modelStatusLanguages: Set<LearningLanguage> { Set(modelItems.keys) }
 
     init(
         togglePanel: @escaping () -> Void,

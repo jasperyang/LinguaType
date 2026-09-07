@@ -86,6 +86,14 @@ final class LearningPanelContentView: NSView {
         translationSection.copyButton(for: language)
     }
 
+    func performPinAction() {
+        headerView.performPinAction()
+    }
+
+    func cancelTransientFeedback() {
+        translationSection.cancelCopyFeedback()
+    }
+
     private func wireActions() {
         headerView.onSelectionChange = { [weak self] selection in
             self?.onSelectionChange?(selection)
