@@ -26,10 +26,20 @@ private final class TestPanelScheduler: PanelTimerScheduling {
 
 enum PanelPresentationTests {
     static func run() {
-        let view = LearningPanelContentView()
+        let view = LearningPanelContentView(frame: NSRect(x: 0, y: 0, width: 520, height: 480))
         view.apply(fixture())
+        view.layoutSubtreeIfNeeded()
         Test.expect(view.phraseRows.count == 3, "learning panel renders three fixed phrase rows")
         Test.expect(view.vocabularyCardViews.count == 3, "learning panel renders all three vocabulary cards")
+        Test.expect(
+            view.vocabularyCardViews.allSatisfy { $0.frame.height >= 80 },
+            "each vocabulary card receives enough layout height for its text"
+        )
+        let orderedFrames = view.vocabularyCardViews.map(\.frame).sorted { $0.minY < $1.minY }
+        Test.expect(
+            zip(orderedFrames, orderedFrames.dropFirst()).allSatisfy { lower, upper in lower.maxY <= upper.minY },
+            "vocabulary cards occupy non-overlapping vertical regions"
+        )
 
         let scheduler = TestPanelScheduler()
         let timer = PanelAutoHideController(interval: 12, scheduler: scheduler)

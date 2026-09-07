@@ -126,7 +126,14 @@ final class LearningPanelContentView: NSView {
             let suffix = pronunciation.isEmpty ? "" : "  \(pronunciation)"
             stack.addArrangedSubview(label("\(term.language.flag)  \(term.term)\(suffix)", size: 10.5, weight: .regular, color: .labelColor))
         }
-        box.contentView = stack
+        let contentView = box.contentView!
+        contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+        ])
         box.translatesAutoresizingMaskIntoConstraints = false
         box.widthAnchor.constraint(equalToConstant: 492).isActive = true
         return box
