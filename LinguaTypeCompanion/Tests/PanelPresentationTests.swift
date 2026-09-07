@@ -53,6 +53,19 @@ enum PanelPresentationTests {
         timer.pointerExited()
         scheduler.advance(by: 1)
         Test.expect(hidden, "auto-hide resumes with the remaining delay after hover")
+
+        let pinnedScheduler = TestPanelScheduler()
+        let pinnedTimer = PanelAutoHideController(interval: 12, scheduler: pinnedScheduler)
+        var pinnedHidden = false
+        pinnedTimer.start { pinnedHidden = true }
+        pinnedTimer.setPinned(true)
+        pinnedScheduler.advance(by: 30)
+        Test.expect(!pinnedHidden, "pinned panel ignores auto-hide deadline")
+        pinnedTimer.setPinned(false)
+        pinnedScheduler.advance(by: 11)
+        Test.expect(!pinnedHidden, "unpin starts a fresh twelve-second deadline")
+        pinnedScheduler.advance(by: 1)
+        Test.expect(pinnedHidden, "unpinned panel hides after the fresh deadline")
     }
 
     private static func fixture() -> LearningDisplayState {

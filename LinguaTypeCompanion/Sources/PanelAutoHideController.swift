@@ -35,6 +35,7 @@ final class PanelAutoHideController {
     private var deadline: TimeInterval = 0
     private var remaining: TimeInterval = 0
     private var action: (() -> Void)?
+    private(set) var isPinned = false
 
     init(interval: TimeInterval = 12, scheduler: PanelTimerScheduling = MainRunLoopPanelScheduler()) {
         self.interval = interval
@@ -45,19 +46,28 @@ final class PanelAutoHideController {
         cancel()
         self.action = action
         remaining = interval
-        scheduleRemaining()
+        if !isPinned { scheduleRemaining() }
     }
 
     func pointerEntered() {
-        guard token != nil else { return }
+        guard !isPinned, token != nil else { return }
         remaining = max(0, deadline - scheduler.now)
         token?.cancel()
         token = nil
     }
 
     func pointerExited() {
-        guard token == nil, action != nil, remaining > 0 else { return }
+        guard !isPinned, token == nil, action != nil, remaining > 0 else { return }
         scheduleRemaining()
+    }
+
+    func setPinned(_ pinned: Bool) {
+        guard pinned != isPinned else { return }
+        isPinned = pinned
+        token?.cancel()
+        token = nil
+        remaining = interval
+        if !pinned, action != nil { scheduleRemaining() }
     }
 
     func cancel() {

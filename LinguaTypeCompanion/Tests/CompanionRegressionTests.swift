@@ -17,6 +17,7 @@ enum CompanionRegressionTests {
         TranslationJobQueueTests.run()
         TranslationWorkPlannerTests.run()
         DictionaryNetworkingTests.run()
+        TranslationClipboardTests.run()
         PanelPresentationTests.run()
         PrivacySafeLogTests.run()
 
