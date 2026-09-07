@@ -135,8 +135,8 @@ final class TranslationPanel: NSObject {
     }
 
     private func estimatedHeight(for state: LearningDisplayState?) -> CGFloat {
-        guard let state else { return 190 }
-        return 132 + CGFloat(state.vocabularyCards.count) * 116
+        guard state != nil else { return 190 }
+        return max(190, content.preferredHeight)
     }
 
     private func screen(containing rect: NSRect) -> NSScreen? {

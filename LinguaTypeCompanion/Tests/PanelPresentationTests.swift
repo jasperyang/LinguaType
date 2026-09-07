@@ -35,10 +35,14 @@ enum PanelPresentationTests {
             view.vocabularyCardViews.allSatisfy { $0.frame.height >= 80 },
             "each vocabulary card receives enough layout height for its text"
         )
-        let orderedFrames = view.vocabularyCardViews.map(\.frame).sorted { $0.minY < $1.minY }
         Test.expect(
-            zip(orderedFrames, orderedFrames.dropFirst()).allSatisfy { lower, upper in lower.maxY <= upper.minY },
-            "vocabulary cards occupy non-overlapping vertical regions"
+            view.vocabularyCardViews.enumerated().allSatisfy { index, card in
+                let cardFrame = view.convert(card.bounds, from: card)
+                return view.vocabularyCardViews.dropFirst(index + 1).allSatisfy {
+                    !cardFrame.intersects(view.convert($0.bounds, from: $0))
+                }
+            },
+            "vocabulary cards occupy non-overlapping regions"
         )
 
         let scheduler = TestPanelScheduler()
