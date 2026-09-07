@@ -6,6 +6,7 @@ final class LearningCoordinator {
     static let shared = LearningCoordinator()
 
     var onUpdate: ((LearningDisplayState?) -> Void)?
+    private(set) var languageSelection: LanguageSelection
 
     private weak var panel: TranslationPanel?
     private var generation: UInt64 = 0
@@ -15,11 +16,20 @@ final class LearningCoordinator {
     private var pendingLookups = 0
     private let extractor = VocabularyExtractor()
     private let dictionaryService = DictionaryLookupService()
+    private let workPlanner = TranslationWorkPlanner()
+    private let persistSelection: (LanguageSelection) -> Void
 
     private var bridgeModel: LinguaTypeTranslationBridgeModel!
     private var bridgeHost: NSHostingView<LinguaTypeTranslationBridgeView>!
 
-    private init() {
+    init(
+        languageSelection: LanguageSelection = LinguaTypePreferences.languageSelection(),
+        persistSelection: @escaping (LanguageSelection) -> Void = {
+            LinguaTypePreferences.setLanguageSelection($0)
+        }
+    ) {
+        self.languageSelection = languageSelection
+        self.persistSelection = persistSelection
         bridgeModel = LinguaTypeTranslationBridgeModel(coordinator: self)
         bridgeHost = NSHostingView(rootView: LinguaTypeTranslationBridgeView(model: bridgeModel))
         bridgeHost.translatesAutoresizingMaskIntoConstraints = false
@@ -60,7 +70,10 @@ final class LearningCoordinator {
         queue.removeAll()
         pendingLookups = 0
 
-        var next = LearningDisplayState.loading(sourcePhrase: text)
+        var next = LearningDisplayState.loading(
+            sourcePhrase: text,
+            selection: languageSelection
+        )
         next.vocabularyCards = extractor.extract(from: text).map {
             VocabularyCard.loading(source: $0.word)
         }
@@ -74,13 +87,37 @@ final class LearningCoordinator {
         }
 
         let work = DispatchWorkItem { [weak self] in
-            self?.enqueueTranslations(for: text, generation: currentGeneration)
+            self?.enqueueMissingTranslations(generation: currentGeneration)
         }
         debounceWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.28, execute: work)
     }
 
     func clearDictionaryCache() { dictionaryService.clearCache() }
+
+    func setLanguageSelection(_ selection: LanguageSelection) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard selection != languageSelection else { return }
+        languageSelection = selection
+        persistSelection(selection)
+
+        guard var current = state else { return }
+        let existingRows = Dictionary(
+            uniqueKeysWithValues: current.phraseTranslations.map { ($0.language, $0) }
+        )
+        current.phraseTranslations = selection.orderedLanguages.map { language in
+            existingRows[language]
+                ?? PhraseTranslation(language: language, text: nil, status: .loading)
+        }
+        state = current
+        publish()
+
+        debounceWork?.cancel()
+        debounceWork = nil
+        bridgeModel.cancel()
+        queue.removeAll()
+        enqueueMissingTranslations(generation: generation)
+    }
 
     func modelStatuses() -> [LearningLanguage: String] {
         guard let state else {
@@ -97,28 +134,13 @@ final class LearningCoordinator {
         })
     }
 
-    private func enqueueTranslations(for phrase: String, generation: UInt64) {
+    private func enqueueMissingTranslations(generation: UInt64) {
         guard self.generation == generation, let state else { return }
-        for language in LearningLanguage.displayOrder {
-            queue.enqueue(TranslationJob(
-                generation: generation,
-                purpose: .phrase(language: language),
-                text: phrase,
-                sourceLanguageID: "zh-Hans",
-                targetLanguageID: language.rawValue
-            ))
-        }
-        for (cardID, card) in state.vocabularyCards.enumerated() {
-            for language in LearningLanguage.displayOrder {
-                queue.enqueue(TranslationJob(
-                    generation: generation,
-                    purpose: .term(cardID: cardID, language: language),
-                    text: card.source,
-                    sourceLanguageID: "zh-Hans",
-                    targetLanguageID: language.rawValue
-                ))
-            }
-        }
+        workPlanner.missingJobs(
+            state: state,
+            selection: languageSelection,
+            generation: generation
+        ).forEach { queue.enqueue($0) }
         beginNextJob()
     }
 

@@ -15,6 +15,7 @@ enum CompanionRegressionTests {
         VocabularyExtractorTests.run()
         DictionaryTests.run()
         TranslationJobQueueTests.run()
+        TranslationWorkPlannerTests.run()
         DictionaryNetworkingTests.run()
         PanelPresentationTests.run()
         PrivacySafeLogTests.run()

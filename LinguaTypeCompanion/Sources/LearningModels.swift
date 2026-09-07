@@ -93,10 +93,13 @@ struct LearningDisplayState: Equatable {
     var vocabularyCards: [VocabularyCard]
     var phase: LoadingPhase
 
-    static func loading(sourcePhrase: String) -> LearningDisplayState {
+    static func loading(
+        sourcePhrase: String,
+        selection: LanguageSelection = .default
+    ) -> LearningDisplayState {
         LearningDisplayState(
             sourcePhrase: sourcePhrase,
-            phraseTranslations: LearningLanguage.displayOrder.map {
+            phraseTranslations: selection.orderedLanguages.map {
                 PhraseTranslation(language: $0, text: nil, status: .loading)
             },
             vocabularyCards: [],
