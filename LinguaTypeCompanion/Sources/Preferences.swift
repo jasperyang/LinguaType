@@ -6,6 +6,8 @@ enum LinguaTypePreferences {
     private static let dictionaryLookupKey = "LinguaType.dictionaryLookupEnabled"
     private static let primaryLanguageKey = "LinguaType.primaryLanguage"
     private static let selectedLanguagesKey = "LinguaType.selectedLanguages"
+    private static let learningModeKey = "LinguaType.learningMode"
+    private static let learnerLevelPrefix = "LinguaType.learnerLevel."
 
     static var isEnabled: Bool {
         if UserDefaults.standard.object(forKey: enabledKey) == nil { return true }
@@ -51,4 +53,33 @@ enum LinguaTypePreferences {
         )
     }
 
+    static func learningMode(defaults: UserDefaults = .standard) -> LearningMode {
+        defaults.string(forKey: learningModeKey)
+            .flatMap(LearningMode.init(rawValue:))
+            ?? .minimal
+    }
+
+    static func setLearningMode(
+        _ mode: LearningMode,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(mode.rawValue, forKey: learningModeKey)
+    }
+
+    static func learnerLevel(
+        for language: LearningLanguage,
+        defaults: UserDefaults = .standard
+    ) -> LearnerLevel {
+        defaults.string(forKey: learnerLevelPrefix + language.rawValue)
+            .flatMap(LearnerLevel.init(rawValue:))
+            ?? .beginner
+    }
+
+    static func setLearnerLevel(
+        _ level: LearnerLevel,
+        for language: LearningLanguage,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(level.rawValue, forKey: learnerLevelPrefix + language.rawValue)
+    }
 }

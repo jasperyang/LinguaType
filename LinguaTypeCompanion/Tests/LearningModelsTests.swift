@@ -2,6 +2,8 @@ import Foundation
 
 enum LearningModelsTests {
     static func run() {
+        testLearningPreferences()
+
         Test.expect(
             LearningLanguage.displayOrder == [.french, .english, .japanese],
             "loading results always use French, English, Japanese order"
@@ -44,5 +46,55 @@ enum LearningModelsTests {
             "a committed phrase immediately publishes up to three vocabulary cards"
         )
         coordinator.idle()
+    }
+
+    private static func testLearningPreferences() {
+        let suiteName = "LinguaType.LearningModelsTests.preferences"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        Test.expect(
+            LinguaTypePreferences.learningMode(defaults: defaults) == .minimal,
+            "minimal mode is the default"
+        )
+        Test.expect(
+            LinguaTypePreferences.learnerLevel(for: .japanese, defaults: defaults) == .beginner,
+            "each language starts at beginner level"
+        )
+
+        LinguaTypePreferences.setLearningMode(.deep, defaults: defaults)
+        LinguaTypePreferences.setLearnerLevel(.advanced, for: .japanese, defaults: defaults)
+
+        Test.expect(
+            LinguaTypePreferences.learningMode(defaults: defaults) == .deep
+                && LinguaTypePreferences.learnerLevel(for: .japanese, defaults: defaults) == .advanced
+                && LinguaTypePreferences.learnerLevel(for: .french, defaults: defaults) == .beginner,
+            "mode and learner levels persist independently"
+        )
+
+        let point = LearningPoint(
+            id: "ja.place-action",
+            language: .japanese,
+            kind: .pattern,
+            targetExpression: "東京で生活する",
+            pronunciation: "とうきょうで せいかつする",
+            chineseMeaning: "在东京生活",
+            pattern: "地点 + で + 动作",
+            example: nil,
+            evidenceID: "ja.place-action"
+        )
+        let lesson = MicroLesson(
+            primaryLanguage: .japanese,
+            mapPairs: [],
+            learningPoints: [point],
+            explanation: nil,
+            practice: nil,
+            reviewCandidates: [point]
+        )
+        Test.expect(
+            lesson.learningPoints == [point] && lesson.mapPairs.isEmpty && lesson.practice == nil,
+            "lesson model represents available teaching blocks without fabricating others"
+        )
     }
 }
