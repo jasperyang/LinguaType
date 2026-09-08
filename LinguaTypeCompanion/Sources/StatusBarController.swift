@@ -5,6 +5,8 @@ final class StatusBarController: NSObject {
     private let setLearningEnabled: (Bool) -> Void
     private let setDictionaryLookupEnabled: (Bool) -> Void
     private let modelStatuses: () -> [LearningLanguage: String]
+    private let dueReviewCount: () -> Int
+    private let showReview: () -> Void
     private let clearCache: () -> Void
     private let showPrivacy: () -> Void
 
@@ -12,16 +14,20 @@ final class StatusBarController: NSObject {
     private let menu = NSMenu()
     private var learningItem: NSMenuItem!
     private var dictionaryItem: NSMenuItem!
+    private var reviewItem: NSMenuItem!
     private var modelItems: [LearningLanguage: NSMenuItem] = [:]
 
     private(set) var installPath = ""
     var modelStatusLanguages: Set<LearningLanguage> { Set(modelItems.keys) }
+    var reviewMenuTitle: String { reviewItem?.title ?? reviewTitle() }
 
     init(
         togglePanel: @escaping () -> Void,
         setLearningEnabled: @escaping (Bool) -> Void,
         setDictionaryLookupEnabled: @escaping (Bool) -> Void,
         modelStatuses: @escaping () -> [LearningLanguage: String],
+        dueReviewCount: @escaping () -> Int = { 0 },
+        showReview: @escaping () -> Void = {},
         clearCache: @escaping () -> Void,
         showPrivacy: @escaping () -> Void
     ) {
@@ -29,6 +35,8 @@ final class StatusBarController: NSObject {
         self.setLearningEnabled = setLearningEnabled
         self.setDictionaryLookupEnabled = setDictionaryLookupEnabled
         self.modelStatuses = modelStatuses
+        self.dueReviewCount = dueReviewCount
+        self.showReview = showReview
         self.clearCache = clearCache
         self.showPrivacy = showPrivacy
     }
@@ -72,6 +80,8 @@ final class StatusBarController: NSObject {
         dictionaryItem = item(title: "联网查词", action: #selector(toggleDictionaryLookup))
         menu.addItem(learningItem)
         menu.addItem(dictionaryItem)
+        reviewItem = item(title: reviewTitle(), action: #selector(openReview))
+        menu.addItem(reviewItem)
         menu.addItem(.separator())
 
         for language in LearningLanguage.displayOrder {
@@ -98,6 +108,7 @@ final class StatusBarController: NSObject {
     private func refreshMenuState() {
         learningItem?.state = LinguaTypePreferences.isEnabled ? .on : .off
         dictionaryItem?.state = LinguaTypePreferences.isDictionaryLookupEnabled ? .on : .off
+        reviewItem?.title = reviewTitle()
         let statuses = modelStatuses()
         for language in LearningLanguage.displayOrder {
             modelItems[language]?.title = "\(language.displayName)模型：\(statuses[language] ?? "按需准备")"
@@ -129,6 +140,14 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func clearDictionaryCache() { clearCache() }
+    @objc private func openReview() { showReview() }
     @objc private func openPrivacy() { showPrivacy() }
     @objc private func quit() { NSApplication.shared.terminate(nil) }
+
+    func performReviewAction() { showReview() }
+
+    private func reviewTitle() -> String {
+        let count = dueReviewCount()
+        return count > 0 ? "今日复习 (\(count))" : "复习"
+    }
 }

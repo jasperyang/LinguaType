@@ -43,5 +43,24 @@ enum MenuBarTests {
             controller.modelStatusLanguages == Set(LearningLanguage.displayOrder),
             "menu keeps model statuses for every supported language"
         )
+
+        var reviewOpened = false
+        let reviewController = StatusBarController(
+            togglePanel: {},
+            setLearningEnabled: { _ in },
+            setDictionaryLookupEnabled: { _ in },
+            modelStatuses: { [:] },
+            dueReviewCount: { 3 },
+            showReview: { reviewOpened = true },
+            clearCache: {},
+            showPrivacy: {}
+        )
+        reviewController.install()
+        Test.expect(
+            reviewController.reviewMenuTitle == "今日复习 (3)",
+            "menu shows the local due review count"
+        )
+        reviewController.performReviewAction()
+        Test.expect(reviewOpened, "review menu invokes the local review callback")
     }
 }
