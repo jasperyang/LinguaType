@@ -80,11 +80,68 @@ struct CuratedLessonContentPack: LessonContentPack {
     }
 }
 
+struct ParameterizedLessonContentPack: LessonContentPack {
+    let language: LearningLanguage
+    let matcher: TemplateLessonMatcher
+
+    init(
+        language: LearningLanguage,
+        matcher: TemplateLessonMatcher = .builtIn
+    ) {
+        self.language = language
+        self.matcher = matcher
+    }
+
+    func candidates(
+        sourcePhrase: String,
+        primaryTranslation: String,
+        vocabularyCards _: [VocabularyCard],
+        level: LearnerLevel
+    ) -> [LessonCandidate] {
+        matcher.candidates(
+            sourcePhrase: sourcePhrase,
+            primaryTranslation: primaryTranslation,
+            language: language,
+            level: level
+        )
+    }
+}
+
+struct CompositeLessonContentPack: LessonContentPack {
+    let language: LearningLanguage
+    let packs: [any LessonContentPack]
+
+    func candidates(
+        sourcePhrase: String,
+        primaryTranslation: String,
+        vocabularyCards: [VocabularyCard],
+        level: LearnerLevel
+    ) -> [LessonCandidate] {
+        packs.flatMap {
+            $0.candidates(
+                sourcePhrase: sourcePhrase,
+                primaryTranslation: primaryTranslation,
+                vocabularyCards: vocabularyCards,
+                level: level
+            )
+        }
+    }
+}
+
 enum BuiltInLessonPacks {
     static let all: [any LessonContentPack] = [
-        japanese,
-        french,
-        english,
+        CompositeLessonContentPack(
+            language: .japanese,
+            packs: [japanese, ParameterizedLessonContentPack(language: .japanese)]
+        ),
+        CompositeLessonContentPack(
+            language: .french,
+            packs: [french, ParameterizedLessonContentPack(language: .french)]
+        ),
+        CompositeLessonContentPack(
+            language: .english,
+            packs: [english, ParameterizedLessonContentPack(language: .english)]
+        ),
     ]
 
     static let japanese = CuratedLessonContentPack(

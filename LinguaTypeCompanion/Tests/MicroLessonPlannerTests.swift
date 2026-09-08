@@ -20,6 +20,8 @@ enum MicroLessonPlannerTests {
         testFrenchAndEnglishRulesHaveIndependentEvidence()
         testParameterizedRulesAcceptKnownSlots()
         testParameterizedRulesRejectUnverifiedAnchors()
+        testPlannerUsesParameterizedLessonForSupportedCombination()
+        testExactCuratedRuleStillWinsOverParameterizedFallback()
         testLevelChangesEligibleTeachingPoint()
         testUnsupportedTextDoesNotCreateLesson()
         testPlannerCapsTeachingPointsAndChecksPractice()
@@ -118,6 +120,39 @@ enum MicroLessonPlannerTests {
             level: .beginner
         )
         Test.expect(candidates.isEmpty, "unknown slots never fabricate a local lesson")
+    }
+
+    private static func testPlannerUsesParameterizedLessonForSupportedCombination() {
+        let lesson = TutorLessonPlanner().plan(
+            from: state(
+                source: "在巴黎工作",
+                primary: .french,
+                translation: "Je travaille à Paris."
+            ),
+            primaryLanguage: .french,
+            level: .beginner
+        )
+        Test.expect(
+            lesson?.mapPairs.first?.source == "在巴黎工作"
+                && lesson?.practice?.correctChoice == "à",
+            "planner turns validated parameterized French input into a lesson"
+        )
+    }
+
+    private static func testExactCuratedRuleStillWinsOverParameterizedFallback() {
+        let lesson = TutorLessonPlanner().plan(
+            from: state(
+                source: "在东京生活",
+                primary: .japanese,
+                translation: "東京で生活する"
+            ),
+            primaryLanguage: .japanese,
+            level: .beginner
+        )
+        Test.expect(
+            lesson?.learningPoints.first?.id == "ja.place-action",
+            "curated rule remains first"
+        )
     }
 
     private static func testLevelChangesEligibleTeachingPoint() {
