@@ -11,6 +11,7 @@ enum CompanionRegressionTests {
 
         LearningModelsTests.run()
         MicroLessonPlannerTests.run()
+        ReviewStoreTests.run()
         LanguageSelectionTests.run()
         MenuBarTests.run()
         VocabularyExtractorTests.run()
