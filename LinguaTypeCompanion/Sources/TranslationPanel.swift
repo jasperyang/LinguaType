@@ -31,12 +31,15 @@ final class TranslationPanel: NSObject {
     private let panel: LearningPanelWindow
     private let visualEffect = HoverEffectView()
     private let content = LearningPanelContentView()
+    private let resizeHandle = PanelResizeHandleView()
     private let autoHide: PanelAutoHideController
+    private let sizePolicy = PanelSizePolicy()
     private weak var coordinator: LearningCoordinator?
     private var lastState: LearningDisplayState?
     private var lastAnchor: NSRect?
     private var autoHideStarted = false
     private var pinStateBeforeReview: Bool?
+    private var hasUserSizeOverride = PanelSizePreferences.userSize() != nil
 
     init(
         coordinator: LearningCoordinator,
@@ -78,6 +81,17 @@ final class TranslationPanel: NSObject {
             content.topAnchor.constraint(equalTo: visualEffect.topAnchor),
             content.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
         ])
+        resizeHandle.translatesAutoresizingMaskIntoConstraints = false
+        visualEffect.addSubview(resizeHandle)
+        NSLayoutConstraint.activate([
+            resizeHandle.leadingAnchor.constraint(equalTo: visualEffect.leadingAnchor),
+            resizeHandle.trailingAnchor.constraint(equalTo: visualEffect.trailingAnchor),
+            resizeHandle.topAnchor.constraint(equalTo: visualEffect.topAnchor),
+            resizeHandle.bottomAnchor.constraint(equalTo: visualEffect.bottomAnchor),
+        ])
+        resizeHandle.onResize = { [weak self] direction, delta in
+            self?.resize(direction: direction, delta: delta)
+        }
         coordinator.install(into: visualEffect)
         coordinator.onUpdate = { [weak self] state in self?.apply(state) }
         content.onSelectionChange = { [weak coordinator] selection in
@@ -154,16 +168,49 @@ final class TranslationPanel: NSObject {
         let visible = screen.visibleFrame
         let maxHeight = min(560, visible.height * 0.60)
         let desiredHeight = min(maxHeight, estimatedHeight(for: lastState))
-        let width: CGFloat = 520
+        let requestedSize = hasUserSizeOverride
+            ? PanelSizePreferences.userSize() ?? NSSize(width: 520, height: desiredHeight)
+            : NSSize(width: 520, height: desiredHeight)
+        let size = sizePolicy.size(requested: requestedSize, visibleFrame: visible)
         let gap: CGFloat = 10
         let margin: CGFloat = 6
 
         var x = anchor.minX
-        var y = anchor.minY - gap - desiredHeight
+        var y = anchor.minY - gap - size.height
         if y < visible.minY + margin { y = anchor.maxY + gap }
-        x = min(max(x, visible.minX + margin), visible.maxX - width - margin)
-        y = min(max(y, visible.minY + margin), visible.maxY - desiredHeight - margin)
-        panel.setFrame(NSRect(x: x, y: y, width: width, height: desiredHeight), display: true)
+        x = min(max(x, visible.minX + margin), visible.maxX - size.width - margin)
+        y = min(max(y, visible.minY + margin), visible.maxY - size.height - margin)
+        panel.setFrame(NSRect(origin: NSPoint(x: x, y: y), size: size), display: true)
+    }
+
+    private func resize(direction: PanelResizeDirection, delta: NSPoint) {
+        guard let screen = screen(containing: panel.frame) ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        let raw = PanelResizeMath.frame(from: panel.frame, direction: direction, delta: delta)
+        let size = sizePolicy.size(requested: raw.size, visibleFrame: screen.visibleFrame)
+        var origin = raw.origin
+        if preservesRightEdge(direction) { origin.x = raw.maxX - size.width }
+        if preservesTopEdge(direction) { origin.y = raw.maxY - size.height }
+
+        let margin = sizePolicy.margin
+        origin.x = min(max(origin.x, screen.visibleFrame.minX + margin), screen.visibleFrame.maxX - size.width - margin)
+        origin.y = min(max(origin.y, screen.visibleFrame.minY + margin), screen.visibleFrame.maxY - size.height - margin)
+        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        PanelSizePreferences.setUserSize(size)
+        hasUserSizeOverride = true
+    }
+
+    private func preservesRightEdge(_ direction: PanelResizeDirection) -> Bool {
+        switch direction {
+        case .left, .topLeft, .bottomLeft: true
+        default: false
+        }
+    }
+
+    private func preservesTopEdge(_ direction: PanelResizeDirection) -> Bool {
+        switch direction {
+        case .bottom, .bottomLeft, .bottomRight: true
+        default: false
+        }
     }
 
     func apply(_ state: LearningDisplayState?) {

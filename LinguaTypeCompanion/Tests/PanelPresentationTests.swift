@@ -28,6 +28,7 @@ enum PanelPresentationTests {
     static func run() {
         testPanelSizePolicyClampsAndPreservesOverride()
         testPanelSizePreferencesRoundTrip()
+        testResizeDirectionsMoveExpectedEdges()
 
         let view = LearningPanelContentView(frame: NSRect(x: 0, y: 0, width: 520, height: 480))
         view.apply(fixture())
@@ -187,6 +188,28 @@ enum PanelPresentationTests {
         Test.expect(
             PanelSizePreferences.userSize(defaults: defaults) == NSSize(width: 700, height: 420),
             "manual size persists"
+        )
+    }
+
+    private static func testResizeDirectionsMoveExpectedEdges() {
+        let frame = NSRect(x: 100, y: 100, width: 520, height: 300)
+        let southeast = PanelResizeMath.frame(
+            from: frame,
+            direction: .bottomRight,
+            delta: NSPoint(x: 80, y: -50)
+        )
+        let west = PanelResizeMath.frame(
+            from: frame,
+            direction: .left,
+            delta: NSPoint(x: -40, y: 0)
+        )
+        Test.expect(
+            southeast.size == NSSize(width: 600, height: 350),
+            "bottom-right resize changes both dimensions"
+        )
+        Test.expect(
+            west.origin.x == 60 && west.width == 560,
+            "left resize preserves the opposite edge"
         )
     }
 
