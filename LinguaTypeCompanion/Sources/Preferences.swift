@@ -1,4 +1,4 @@
-import Foundation
+import Cocoa
 
 /// User-tweakable Companion switches persisted via UserDefaults.
 enum LinguaTypePreferences {
@@ -81,5 +81,25 @@ enum LinguaTypePreferences {
         defaults: UserDefaults = .standard
     ) {
         defaults.set(level.rawValue, forKey: learnerLevelPrefix + language.rawValue)
+    }
+}
+
+enum PanelSizePreferences {
+    private static let widthKey = "LinguaType.panelSize.width"
+    private static let heightKey = "LinguaType.panelSize.height"
+
+    static func userSize(defaults: UserDefaults = .standard) -> NSSize? {
+        guard let width = defaults.object(forKey: widthKey) as? NSNumber,
+              let height = defaults.object(forKey: heightKey) as? NSNumber,
+              width.doubleValue > 0,
+              height.doubleValue > 0 else {
+            return nil
+        }
+        return NSSize(width: width.doubleValue, height: height.doubleValue)
+    }
+
+    static func setUserSize(_ size: NSSize, defaults: UserDefaults = .standard) {
+        defaults.set(size.width, forKey: widthKey)
+        defaults.set(size.height, forKey: heightKey)
     }
 }

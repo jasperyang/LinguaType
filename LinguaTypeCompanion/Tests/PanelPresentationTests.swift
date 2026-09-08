@@ -26,6 +26,9 @@ private final class TestPanelScheduler: PanelTimerScheduling {
 
 enum PanelPresentationTests {
     static func run() {
+        testPanelSizePolicyClampsAndPreservesOverride()
+        testPanelSizePreferencesRoundTrip()
+
         let view = LearningPanelContentView(frame: NSRect(x: 0, y: 0, width: 520, height: 480))
         view.apply(fixture())
         view.layoutSubtreeIfNeeded()
@@ -150,6 +153,40 @@ enum PanelPresentationTests {
         Test.expect(
             reviewAnswered && !panel.isPinned,
             "review answer restores the panel's previous pin state"
+        )
+    }
+
+    private static func testPanelSizePolicyClampsAndPreservesOverride() {
+        let policy = PanelSizePolicy()
+        let visible = NSRect(x: 0, y: 0, width: 1200, height: 800)
+        let automatic = policy.size(
+            requested: NSSize(width: 520, height: 900),
+            visibleFrame: visible
+        )
+        let manual = policy.size(
+            requested: NSSize(width: 760, height: 460),
+            visibleFrame: visible
+        )
+        Test.expect(
+            automatic == NSSize(width: 520, height: 480),
+            "automatic size obeys the 60 percent screen cap"
+        )
+        Test.expect(
+            manual == NSSize(width: 760, height: 460),
+            "valid manual size is preserved"
+        )
+    }
+
+    private static func testPanelSizePreferencesRoundTrip() {
+        let defaults = UserDefaults(suiteName: "PanelSizePreferencesTests")!
+        defaults.removePersistentDomain(forName: "PanelSizePreferencesTests")
+        PanelSizePreferences.setUserSize(
+            NSSize(width: 700, height: 420),
+            defaults: defaults
+        )
+        Test.expect(
+            PanelSizePreferences.userSize(defaults: defaults) == NSSize(width: 700, height: 420),
+            "manual size persists"
         )
     }
 
