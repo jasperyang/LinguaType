@@ -18,6 +18,8 @@ enum MicroLessonPlannerTests {
     static func run() {
         testJapaneseRuleCreatesReliableMapAndPractice()
         testFrenchAndEnglishRulesHaveIndependentEvidence()
+        testParameterizedRulesAcceptKnownSlots()
+        testParameterizedRulesRejectUnverifiedAnchors()
         testLevelChangesEligibleTeachingPoint()
         testUnsupportedTextDoesNotCreateLesson()
         testPlannerCapsTeachingPointsAndChecksPractice()
@@ -77,6 +79,45 @@ enum MicroLessonPlannerTests {
                 && english?.learningPoints.first?.evidenceID == "en.place-activity",
             "French and English use their own local teaching evidence"
         )
+    }
+
+    private static func testParameterizedRulesAcceptKnownSlots() {
+        let matcher = TemplateLessonMatcher.builtIn
+        let japanese = matcher.candidates(
+            sourcePhrase: "在东京学习",
+            primaryTranslation: "東京で勉強する",
+            language: .japanese,
+            level: .beginner
+        )
+        let french = matcher.candidates(
+            sourcePhrase: "在巴黎工作",
+            primaryTranslation: "Je travaille à Paris.",
+            language: .french,
+            level: .beginner
+        )
+        let english = matcher.candidates(
+            sourcePhrase: "在伦敦生活",
+            primaryTranslation: "I live in London.",
+            language: .english,
+            level: .beginner
+        )
+
+        Test.expect(
+            japanese.first?.point.evidenceID == "ja.place-action"
+                && french.first?.point.evidenceID == "fr.place-action"
+                && english.first?.point.evidenceID == "en.place-action",
+            "known place-action slots create language-specific local lessons"
+        )
+    }
+
+    private static func testParameterizedRulesRejectUnverifiedAnchors() {
+        let candidates = TemplateLessonMatcher.builtIn.candidates(
+            sourcePhrase: "在火星生活",
+            primaryTranslation: "I live on Mars.",
+            language: .english,
+            level: .beginner
+        )
+        Test.expect(candidates.isEmpty, "unknown slots never fabricate a local lesson")
     }
 
     private static func testLevelChangesEligibleTeachingPoint() {
