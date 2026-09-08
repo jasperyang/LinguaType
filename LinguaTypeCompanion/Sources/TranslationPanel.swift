@@ -58,6 +58,7 @@ final class TranslationPanel: NSObject {
         panel.level = .popUpMenu
         panel.hidesOnDeactivate = false
         panel.isFloatingPanel = true
+        panel.isMovableByWindowBackground = true
         panel.ignoresMouseEvents = false
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
 
@@ -93,6 +94,7 @@ final class TranslationPanel: NSObject {
     var isVisible: Bool { panel.isVisible }
     var isPinned: Bool { autoHide.isPinned }
     var isReviewVisible: Bool { content.isReviewVisible }
+    var isMovableByBackground: Bool { panel.isMovableByWindowBackground }
 
     func toggleAttachedToMouse() {
         if panel.isVisible {

@@ -1,5 +1,35 @@
 import Cocoa
 
+private final class PanelDragHandleView: NSView {
+    private var dragOrigin: NSPoint?
+    private var mouseOrigin: NSPoint?
+
+    override func mouseDown(with event: NSEvent) {
+        dragOrigin = window?.frame.origin
+        mouseOrigin = NSEvent.mouseLocation
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window,
+              let dragOrigin,
+              let mouseOrigin else { return }
+        let mouse = NSEvent.mouseLocation
+        window.setFrameOrigin(NSPoint(
+            x: dragOrigin.x + mouse.x - mouseOrigin.x,
+            y: dragOrigin.y + mouse.y - mouseOrigin.y
+        ))
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        dragOrigin = nil
+        mouseOrigin = nil
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .openHand)
+    }
+}
+
 final class PanelHeaderView: NSView {
     var onSelectionChange: ((LanguageSelection) -> Void)?
     var onTogglePin: (() -> Void)?
@@ -55,7 +85,8 @@ final class PanelHeaderView: NSView {
         identity.alignment = .leading
         identity.spacing = 1
 
-        let spacer = NSView()
+        let spacer = PanelDragHandleView()
+        spacer.setAccessibilityLabel("拖动浮窗")
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 

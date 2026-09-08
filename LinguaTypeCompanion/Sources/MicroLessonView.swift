@@ -38,9 +38,9 @@ final class MicroLessonView: NSView {
 
         if mode == .deep, !lesson.mapPairs.isEmpty {
             isSentenceMapVisible = true
-            stack.addArrangedSubview(section(
+            addFullWidth(section(
                 title: "句子拆解",
-                color: NSColor(calibratedRed: 0.64, green: 0.59, blue: 0.94, alpha: 1),
+                color: LinguaTypePalette.compare,
                 lines: lesson.mapPairs.map { "\($0.source)  ↔  \($0.target)" }
             ))
         }
@@ -54,23 +54,23 @@ final class MicroLessonView: NSView {
                 if let example = point.example { values.append("\(example.target) · \(example.chineseMeaning)") }
                 return values
             }
-            stack.addArrangedSubview(section(
+            addFullWidth(section(
                 title: "值得记住",
-                color: NSColor(calibratedRed: 0.91, green: 0.75, blue: 0.42, alpha: 1),
+                color: LinguaTypePalette.remember,
                 lines: lines
             ))
         }
 
         if mode == .deep, let explanation = lesson.explanation {
-            stack.addArrangedSubview(section(
+            addFullWidth(section(
                 title: explanation.title,
-                color: NSColor(calibratedRed: 0.64, green: 0.59, blue: 0.94, alpha: 1),
+                color: LinguaTypePalette.compare,
                 lines: [explanation.body]
             ))
         }
 
         if let practice = lesson.practice {
-            stack.addArrangedSubview(practiceSection(practice))
+            addFullWidth(practiceSection(practice))
         }
 
         if let point = points.first {
@@ -78,7 +78,7 @@ final class MicroLessonView: NSView {
             let button = NSButton(title: "☆ 加入复习", target: self, action: #selector(savePoint(_:)))
             button.identifier = NSUserInterfaceItemIdentifier("save")
             button.isBordered = false
-            button.contentTintColor = NSColor(calibratedRed: 0.86, green: 0.57, blue: 0.67, alpha: 1)
+            button.contentTintColor = LinguaTypePalette.review
             button.setAccessibilityLabel("加入复习")
             stack.addArrangedSubview(button)
         }
@@ -91,7 +91,7 @@ final class MicroLessonView: NSView {
         reviewingItem = item
         let title = NSTextField(labelWithString: "今日复习")
         title.font = .systemFont(ofSize: 10, weight: .semibold)
-        title.textColor = NSColor(calibratedRed: 0.86, green: 0.57, blue: 0.67, alpha: 1)
+        title.textColor = LinguaTypePalette.review
         let expression = NSTextField(wrappingLabelWithString: item.point.targetExpression)
         expression.font = .systemFont(ofSize: 20, weight: .semibold)
         let meaning = NSTextField(wrappingLabelWithString: item.point.chineseMeaning)
@@ -124,11 +124,20 @@ final class MicroLessonView: NSView {
         reviewingItem = nil
     }
 
+    private func addFullWidth(_ view: NSView) {
+        stack.addArrangedSubview(view)
+        view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+    }
+
     private func section(title: String, color: NSColor, lines: [String]) -> NSView {
         let container = NSStackView()
         container.orientation = .vertical
         container.alignment = .leading
         container.spacing = 4
+        container.edgeInsets = NSEdgeInsets(top: 9, left: 10, bottom: 9, right: 10)
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 9
+        container.layer?.backgroundColor = LinguaTypePalette.surface(for: color).cgColor
         let titleLabel = NSTextField(labelWithString: title.uppercased())
         titleLabel.font = .systemFont(ofSize: 9.5, weight: .semibold)
         titleLabel.textColor = color
@@ -139,6 +148,7 @@ final class MicroLessonView: NSView {
             label.textColor = .secondaryLabelColor
             label.maximumNumberOfLines = 2
             container.addArrangedSubview(label)
+            label.widthAnchor.constraint(equalTo: container.widthAnchor, constant: -20).isActive = true
         }
         return container
     }
@@ -148,9 +158,13 @@ final class MicroLessonView: NSView {
         container.orientation = .vertical
         container.alignment = .leading
         container.spacing = 5
+        container.edgeInsets = NSEdgeInsets(top: 9, left: 10, bottom: 9, right: 10)
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 9
+        container.layer?.backgroundColor = LinguaTypePalette.surface(for: LinguaTypePalette.practice).cgColor
         let title = NSTextField(labelWithString: "试一下 · 10 秒")
         title.font = .systemFont(ofSize: 9.5, weight: .semibold)
-        title.textColor = NSColor(calibratedRed: 0.42, green: 0.83, blue: 0.65, alpha: 1)
+        title.textColor = LinguaTypePalette.practice
         let prompt = NSTextField(wrappingLabelWithString: practice.prompt)
         prompt.font = .systemFont(ofSize: 12, weight: .medium)
         let choices = NSStackView()
@@ -164,6 +178,7 @@ final class MicroLessonView: NSView {
         }
         container.addArrangedSubview(title)
         container.addArrangedSubview(prompt)
+        prompt.widthAnchor.constraint(equalTo: container.widthAnchor, constant: -20).isActive = true
         container.addArrangedSubview(choices)
         practices = Dictionary(uniqueKeysWithValues: practice.choices.map { ($0, practice) })
         return container

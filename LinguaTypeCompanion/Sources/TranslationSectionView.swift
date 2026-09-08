@@ -21,6 +21,8 @@ final class TranslationSectionView: NSView {
         copyButtonLanguages.map(\.shortCode)
     }
 
+    var rowSpacing: CGFloat { stack.spacing }
+
     init(copyService: TranslationCopyService) {
         self.copyService = copyService
         super.init(frame: .zero)
@@ -64,7 +66,7 @@ final class TranslationSectionView: NSView {
     private func build() {
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 2
+        stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -142,13 +144,13 @@ private final class TranslationRowView: NSView {
         layer?.cornerRadius = 7
         layer?.backgroundColor = (
             isPrimary
-                ? NSColor.controlAccentColor.withAlphaComponent(0.10)
+                ? LinguaTypePalette.surface(for: LinguaTypePalette.understand, alpha: 0.16)
                 : NSColor.controlBackgroundColor.withAlphaComponent(0.10)
         ).cgColor
 
         let code = NSTextField(labelWithString: translation.language.shortCode)
         code.font = .monospacedSystemFont(ofSize: 10, weight: .semibold)
-        code.textColor = isPrimary ? .controlAccentColor : .secondaryLabelColor
+        code.textColor = isPrimary ? LinguaTypePalette.understand : .secondaryLabelColor
         code.setContentHuggingPriority(.required, for: .horizontal)
         code.setAccessibilityLabel(translation.language.displayName)
 
@@ -184,11 +186,15 @@ private final class TranslationRowView: NSView {
         copyButton.isBordered = false
         copyButton.bezelStyle = .inline
         copyButton.imagePosition = .imageOnly
+        copyButton.controlSize = .small
+        copyButton.imageScaling = .scaleProportionallyDown
         copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: "复制译文")
         copyButton.contentTintColor = .secondaryLabelColor
         copyButton.isEnabled = translation.status == .success && !(translation.text ?? "").isEmpty
         copyButton.setAccessibilityLabel("复制\(translation.language.displayName)译文")
         copyButton.setContentHuggingPriority(.required, for: .horizontal)
+        copyButton.widthAnchor.constraint(equalToConstant: 18).isActive = true
+        copyButton.heightAnchor.constraint(equalToConstant: 18).isActive = true
 
         let trailingStack = NSStackView()
         trailingStack.orientation = .horizontal
@@ -202,12 +208,16 @@ private final class TranslationRowView: NSView {
             expandButton.isBordered = false
             expandButton.bezelStyle = .inline
             expandButton.imagePosition = .imageOnly
+            expandButton.controlSize = .small
+            expandButton.imageScaling = .scaleProportionallyDown
             expandButton.image = NSImage(
                 systemSymbolName: isExpanded ? "chevron.up" : "chevron.down",
                 accessibilityDescription: isExpanded ? "收起译文" : "展开译文"
             )
             expandButton.contentTintColor = .tertiaryLabelColor
             expandButton.setAccessibilityLabel(isExpanded ? "收起\(translation.language.displayName)译文" : "展开\(translation.language.displayName)译文")
+            expandButton.widthAnchor.constraint(equalToConstant: 18).isActive = true
+            expandButton.heightAnchor.constraint(equalToConstant: 18).isActive = true
             trailingStack.addArrangedSubview(expandButton)
         }
         trailingStack.addArrangedSubview(copyButton)
@@ -217,9 +227,9 @@ private final class TranslationRowView: NSView {
         content.alignment = .top
         content.spacing = 8
         content.edgeInsets = NSEdgeInsets(
-            top: isPrimary ? 10 : 7,
+            top: isPrimary ? 11 : 8,
             left: 10,
-            bottom: isPrimary ? 10 : 7,
+            bottom: isPrimary ? 11 : 8,
             right: 8
         )
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -229,7 +239,7 @@ private final class TranslationRowView: NSView {
             content.trailingAnchor.constraint(equalTo: trailingAnchor),
             content.topAnchor.constraint(equalTo: topAnchor),
             content.bottomAnchor.constraint(equalTo: bottomAnchor),
-            trailingStack.widthAnchor.constraint(greaterThanOrEqualToConstant: isPrimary ? 24 : 50),
+            trailingStack.widthAnchor.constraint(greaterThanOrEqualToConstant: isPrimary ? 20 : 42),
         ])
     }
 

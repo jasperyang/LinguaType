@@ -20,7 +20,7 @@ final class SourceSectionView: NSView {
     private func build() {
         let eyebrow = NSTextField(labelWithString: "原文 · 中文")
         eyebrow.font = .systemFont(ofSize: 9.5, weight: .medium)
-        eyebrow.textColor = .tertiaryLabelColor
+        eyebrow.textColor = LinguaTypePalette.understand
 
         sourceLabel.font = .systemFont(ofSize: 11.5, weight: .regular)
         sourceLabel.textColor = .secondaryLabelColor

@@ -79,6 +79,14 @@ enum FocusedPanelViewTests {
             view.renderedLanguageCodes == ["FR", "EN", "JP"],
             "panel uses language codes instead of flags"
         )
+        Test.expect(
+            view.translationRowSpacing >= 7,
+            "translation rows leave enough vertical breathing room"
+        )
+        Test.expect(
+            view.copyButton(for: .french)?.controlSize == .small,
+            "translation copy controls use a compact size"
+        )
     }
 
     private static func testReferenceExpansionAndCopy() {

@@ -26,6 +26,7 @@ final class LearningPanelContentView: NSView {
     var referenceLanguages: [LearningLanguage] { translationSection.referenceLanguages }
     var copyButtonLanguages: [LearningLanguage] { translationSection.copyButtonLanguages }
     var renderedLanguageCodes: [String] { translationSection.renderedLanguageCodes }
+    var translationRowSpacing: CGFloat { translationSection.rowSpacing }
     var expandedReference: LearningLanguage? { translationSection.expandedReference }
     var sourceMaximumLines: Int { sourceSection.maximumNumberOfLines }
     var vocabularyColumnCount: Int { vocabularyGrid.columnCount }
@@ -153,12 +154,7 @@ final class LearningPanelContentView: NSView {
 
     private func build() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor(
-            calibratedRed: 0.055,
-            green: 0.075,
-            blue: 0.095,
-            alpha: 0.20
-        ).cgColor
+        layer?.backgroundColor = LinguaTypePalette.panelBackground.cgColor
         rootStack.orientation = .vertical
         rootStack.alignment = .leading
         rootStack.spacing = 10

@@ -109,6 +109,10 @@ enum PanelPresentationTests {
             coordinator: coordinator,
             autoHide: integrationTimer
         )
+        Test.expect(
+            panel.isMovableByBackground,
+            "the floating learning panel can be dragged by its background"
+        )
         panel.apply(fixture())
         panel.performPinAction()
         Test.expect(panel.isPinned, "panel header pin action fixes the panel in place")
