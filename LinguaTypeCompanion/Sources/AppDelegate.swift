@@ -6,6 +6,7 @@ final class LinguaTypeAppDelegate: NSObject, NSApplicationDelegate {
     private var panel: TranslationPanel!
     private var coordinator: LearningCoordinator!
     private var observer: TranslationObserver!
+    private let reviewStore = ReviewStore.shared
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Establish an Aqua accessory-app connection before creating windows.
@@ -30,6 +31,12 @@ final class LinguaTypeAppDelegate: NSObject, NSApplicationDelegate {
             },
             setDictionaryLookupEnabled: { _ in },
             modelStatuses: { [weak self] in self?.coordinator.modelStatuses() ?? [:] },
+            dueReviewCount: { [weak self] in
+                self?.reviewStore.dueItems(now: Date()).count ?? 0
+            },
+            showReview: { [weak self] in
+                self?.panel.showAttachedToMouse()
+            },
             clearCache: { [weak self] in self?.coordinator.clearDictionaryCache() },
             showPrivacy: { Self.showPrivacyNotice() }
         )

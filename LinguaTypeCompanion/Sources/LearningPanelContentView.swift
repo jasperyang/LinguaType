@@ -7,7 +7,7 @@ final class LearningPanelContentView: NSView {
     private let learnLabel = NSTextField(labelWithString: "LEARN")
     private let vocabularyGrid = VocabularyGridView()
     private let microLessonView = MicroLessonView()
-    private let reviewStore = ReviewStore()
+    private let reviewStore = ReviewStore.shared
     private let headerView: PanelHeaderView
     private let translationSection: TranslationSectionView
     private var scrollHeightConstraint: NSLayoutConstraint?

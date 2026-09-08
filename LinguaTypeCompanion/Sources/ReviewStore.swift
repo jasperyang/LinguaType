@@ -1,6 +1,7 @@
 import Foundation
 
 final class ReviewStore {
+    static let shared = ReviewStore()
     private static let storageKey = "LinguaType.reviewItems"
     private static let intervalsInDays = [1, 3, 7, 14, 30]
 
