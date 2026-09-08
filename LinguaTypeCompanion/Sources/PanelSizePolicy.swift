@@ -6,7 +6,7 @@ enum PanelSizeSource {
 }
 
 struct PanelSizePolicy {
-    let minimumSize = NSSize(width: 420, height: 190)
+    let minimumSize = NSSize(width: 420, height: 300)
     let maximumHeightFraction: CGFloat = 0.60
     let margin: CGFloat = 6
 

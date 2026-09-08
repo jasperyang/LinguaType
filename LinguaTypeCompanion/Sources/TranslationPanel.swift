@@ -181,6 +181,7 @@ final class TranslationPanel: NSObject {
         x = min(max(x, visible.minX + margin), visible.maxX - size.width - margin)
         y = min(max(y, visible.minY + margin), visible.maxY - size.height - margin)
         panel.setFrame(NSRect(origin: NSPoint(x: x, y: y), size: size), display: true)
+        content.setAvailableContentHeight(size.height)
     }
 
     private func resize(direction: PanelResizeDirection, delta: NSPoint) {
@@ -195,6 +196,7 @@ final class TranslationPanel: NSObject {
         origin.x = min(max(origin.x, screen.visibleFrame.minX + margin), screen.visibleFrame.maxX - size.width - margin)
         origin.y = min(max(origin.y, screen.visibleFrame.minY + margin), screen.visibleFrame.maxY - size.height - margin)
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        content.setAvailableContentHeight(size.height)
         PanelSizePreferences.setUserSize(size)
         hasUserSizeOverride = true
     }

@@ -7,10 +7,14 @@ final class LearningPanelContentView: NSView {
     private let learnLabel = NSTextField(labelWithString: "LEARN")
     private let vocabularyGrid = VocabularyGridView()
     private let microLessonView = MicroLessonView()
+    private let lessonScrollView = NSScrollView()
+    private let lessonDocument = NSView()
     private let reviewStore = ReviewStore.shared
     private let headerView: PanelHeaderView
     private let translationSection: TranslationSectionView
     private var scrollHeightConstraint: NSLayoutConstraint?
+    private var lessonHeightConstraint: NSLayoutConstraint?
+    private var availableContentHeight: CGFloat?
     private var currentState: LearningDisplayState?
     private var currentSelection: LanguageSelection = .default
     private var currentPinned = false
@@ -32,6 +36,7 @@ final class LearningPanelContentView: NSView {
     var vocabularyColumnCount: Int { vocabularyGrid.columnCount }
     var vocabularyLanguageCodes: [String] { vocabularyGrid.renderedLanguageCodes }
     var isReviewVisible: Bool { microLessonView.isReviewVisible }
+    private(set) var usesInternalScrolling = false
     var preferredHeight: CGFloat {
         layoutSubtreeIfNeeded()
         return rootStack.fittingSize.height
@@ -80,6 +85,7 @@ final class LearningPanelContentView: NSView {
             lesson: state.lesson,
             mode: LinguaTypePreferences.learningMode()
         )
+        updateLessonPresentation()
 
         let availableWidth = max(0, bounds.width - 28)
         vocabularyGrid.apply(
@@ -94,6 +100,11 @@ final class LearningPanelContentView: NSView {
         let hasLesson = state.lesson != nil
         scrollView.isHidden = hasLesson || vocabularyCardViews.isEmpty
         learnLabel.isHidden = hasLesson || vocabularyCardViews.isEmpty
+    }
+
+    func setAvailableContentHeight(_ height: CGFloat?) {
+        availableContentHeight = height
+        updateLessonPresentation()
     }
 
     func toggleReference(_ language: LearningLanguage) {
@@ -119,6 +130,7 @@ final class LearningPanelContentView: NSView {
         scrollView.isHidden = true
         microLessonView.onReviewAnswer = onAnswer
         microLessonView.showReview(item)
+        updateLessonPresentation()
     }
 
     func performReviewAnswer(isCorrect: Bool) {
@@ -184,10 +196,31 @@ final class LearningPanelContentView: NSView {
         heightConstraint.isActive = true
         scrollHeightConstraint = heightConstraint
 
+        lessonDocument.translatesAutoresizingMaskIntoConstraints = false
+        microLessonView.translatesAutoresizingMaskIntoConstraints = false
+        lessonDocument.addSubview(microLessonView)
+        NSLayoutConstraint.activate([
+            microLessonView.leadingAnchor.constraint(equalTo: lessonDocument.leadingAnchor),
+            microLessonView.trailingAnchor.constraint(equalTo: lessonDocument.trailingAnchor),
+            microLessonView.topAnchor.constraint(equalTo: lessonDocument.topAnchor),
+            microLessonView.bottomAnchor.constraint(equalTo: lessonDocument.bottomAnchor),
+        ])
+        lessonScrollView.documentView = lessonDocument
+        lessonScrollView.drawsBackground = false
+        lessonScrollView.hasVerticalScroller = false
+        lessonScrollView.autohidesScrollers = true
+        lessonScrollView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            lessonDocument.widthAnchor.constraint(equalTo: lessonScrollView.contentView.widthAnchor),
+        ])
+        let lessonHeight = lessonScrollView.heightAnchor.constraint(equalToConstant: 1)
+        lessonHeight.isActive = true
+        lessonHeightConstraint = lessonHeight
+
         rootStack.addArrangedSubview(headerView)
         rootStack.addArrangedSubview(sourceSection)
         rootStack.addArrangedSubview(translationSection)
-        rootStack.addArrangedSubview(microLessonView)
+        rootStack.addArrangedSubview(lessonScrollView)
         rootStack.addArrangedSubview(learnLabel)
         rootStack.addArrangedSubview(scrollView)
         addSubview(rootStack)
@@ -199,9 +232,40 @@ final class LearningPanelContentView: NSView {
             headerView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             sourceSection.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             translationSection.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
-            microLessonView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
+            lessonScrollView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             learnLabel.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             scrollView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
         ])
+    }
+
+    private func updateLessonPresentation() {
+        guard !microLessonView.isHidden else {
+            lessonScrollView.isHidden = true
+            lessonHeightConstraint?.constant = 1
+            usesInternalScrolling = false
+            return
+        }
+
+        lessonScrollView.isHidden = false
+        microLessonView.layoutSubtreeIfNeeded()
+        let naturalHeight = max(1, microLessonView.fittingSize.height)
+        guard let availableContentHeight else {
+            lessonHeightConstraint?.constant = naturalHeight
+            lessonScrollView.hasVerticalScroller = false
+            usesInternalScrolling = false
+            return
+        }
+
+        let fixedHeight = headerView.fittingSize.height
+            + sourceSection.fittingSize.height
+            + translationSection.fittingSize.height
+            + rootStack.edgeInsets.top
+            + rootStack.edgeInsets.bottom
+            + rootStack.spacing * 3
+        let displayHeight = max(80, availableContentHeight - fixedHeight)
+        let lessonHeight = min(naturalHeight, displayHeight)
+        lessonHeightConstraint?.constant = lessonHeight
+        usesInternalScrolling = naturalHeight > lessonHeight + 0.5
+        lessonScrollView.hasVerticalScroller = usesInternalScrolling
     }
 }

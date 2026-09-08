@@ -29,6 +29,7 @@ enum PanelPresentationTests {
         testPanelSizePolicyClampsAndPreservesOverride()
         testPanelSizePreferencesRoundTrip()
         testResizeDirectionsMoveExpectedEdges()
+        testLongLessonUsesInternalScrollingWhenConstrained()
 
         let view = LearningPanelContentView(frame: NSRect(x: 0, y: 0, width: 520, height: 480))
         view.apply(fixture())
@@ -213,6 +214,19 @@ enum PanelPresentationTests {
         )
     }
 
+    private static func testLongLessonUsesInternalScrollingWhenConstrained() {
+        LinguaTypePreferences.setLearningMode(.deep)
+        let view = LearningPanelContentView(frame: NSRect(x: 0, y: 0, width: 520, height: 300))
+        view.apply(longLessonFixture(), selection: .default, isPinned: false)
+        view.setAvailableContentHeight(300)
+        view.layoutSubtreeIfNeeded()
+        Test.expect(
+            view.usesInternalScrolling,
+            "deep content scrolls inside a constrained panel"
+        )
+        LinguaTypePreferences.setLearningMode(.minimal)
+    }
+
     private static func fixture() -> LearningDisplayState {
         let phrases = LearningLanguage.displayOrder.map {
             PhraseTranslation(language: $0, text: "translated", status: .success)
@@ -224,5 +238,40 @@ enum PanelPresentationTests {
             VocabularyCard(source: $0, partOfSpeech: "词", chineseSenses: ["中文义项一", "中文义项二"], contextualSense: "中文义项一", terms: terms, status: .complete)
         }
         return LearningDisplayState(sourcePhrase: "今天的天气很适合散步", phraseTranslations: phrases, vocabularyCards: cards, phase: .complete)
+    }
+
+    private static func longLessonFixture() -> LearningDisplayState {
+        let points = (1...4).map { index in
+            LearningPoint(
+                id: "long-\(index)",
+                language: .japanese,
+                kind: .pattern,
+                targetExpression: "東京で勉強する \(index)",
+                pronunciation: "とうきょうで べんきょうする",
+                chineseMeaning: "在东京学习",
+                pattern: "地点 + で + 动作",
+                example: LearningExample(target: "大阪で働く", chineseMeaning: "在大阪工作"),
+                evidenceID: "long-\(index)"
+            )
+        }
+        let lesson = MicroLesson(
+            primaryLanguage: .japanese,
+            mapPairs: (1...3).map {
+                SentenceMapPair(source: "源词组\($0)", target: "対応表現\($0)", evidenceID: "long-map-\($0)")
+            },
+            learningPoints: points,
+            explanation: WhyExplanation(title: "为什么这么说", body: "这是用于确认长内容布局的本地解释。", evidenceID: "long-explanation"),
+            practice: MicroPractice(id: "long-practice", prompt: "東京 ___ 勉強する", choices: ["で", "に", "を"], correctChoice: "で", successFeedback: "正确", evidenceID: "long-practice"),
+            reviewCandidates: points
+        )
+        return LearningDisplayState(
+            sourcePhrase: "在东京学习",
+            phraseTranslations: LearningLanguage.displayOrder.map {
+                PhraseTranslation(language: $0, text: "译文", status: .success)
+            },
+            vocabularyCards: [],
+            phase: .complete,
+            lesson: lesson
+        )
     }
 }
