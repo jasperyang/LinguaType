@@ -70,5 +70,34 @@ enum TranslationWorkPlannerTests {
         )
         Test.expect(persisted == expanded, "coordinator persists the latest language selection")
         coordinator.idle()
+
+        var persistedLevel: (LearnerLevel, LearningLanguage)?
+        let lessonCoordinator = LearningCoordinator(
+            languageSelection: LanguageSelection(primary: .japanese, selected: [.japanese]),
+            persistSelection: { _ in },
+            learnerLevel: { _ in .beginner },
+            persistLearnerLevel: { level, language in persistedLevel = (level, language) }
+        )
+        let lessonState = LearningDisplayState(
+            sourcePhrase: "在东京生活",
+            phraseTranslations: [
+                PhraseTranslation(
+                    language: .japanese,
+                    text: "東京で生活する",
+                    status: .success
+                )
+            ],
+            vocabularyCards: [],
+            phase: .complete
+        )
+        Test.expect(
+            lessonCoordinator.lesson(for: lessonState)?.learningPoints.first?.id == "ja.place-action",
+            "coordinator attaches a lesson using the selected primary language"
+        )
+        lessonCoordinator.setLearnerLevel(.advanced, for: .japanese)
+        Test.expect(
+            persistedLevel?.0 == .advanced && persistedLevel?.1 == .japanese,
+            "coordinator persists a per-language learner level"
+        )
     }
 }

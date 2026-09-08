@@ -18,6 +18,9 @@ final class LearningCoordinator {
     private let dictionaryService = DictionaryLookupService()
     private let workPlanner = TranslationWorkPlanner()
     private let persistSelection: (LanguageSelection) -> Void
+    private let lessonPlanner: TutorLessonPlanner
+    private let learnerLevel: (LearningLanguage) -> LearnerLevel
+    private let persistLearnerLevel: (LearnerLevel, LearningLanguage) -> Void
 
     private var bridgeModel: LinguaTypeTranslationBridgeModel!
     private var bridgeHost: NSHostingView<LinguaTypeTranslationBridgeView>!
@@ -26,10 +29,20 @@ final class LearningCoordinator {
         languageSelection: LanguageSelection = LinguaTypePreferences.languageSelection(),
         persistSelection: @escaping (LanguageSelection) -> Void = {
             LinguaTypePreferences.setLanguageSelection($0)
+        },
+        lessonPlanner: TutorLessonPlanner = TutorLessonPlanner(),
+        learnerLevel: @escaping (LearningLanguage) -> LearnerLevel = {
+            LinguaTypePreferences.learnerLevel(for: $0)
+        },
+        persistLearnerLevel: @escaping (LearnerLevel, LearningLanguage) -> Void = {
+            LinguaTypePreferences.setLearnerLevel($0, for: $1)
         }
     ) {
         self.languageSelection = languageSelection
         self.persistSelection = persistSelection
+        self.lessonPlanner = lessonPlanner
+        self.learnerLevel = learnerLevel
+        self.persistLearnerLevel = persistLearnerLevel
         bridgeModel = LinguaTypeTranslationBridgeModel(coordinator: self)
         bridgeHost = NSHostingView(rootView: LinguaTypeTranslationBridgeView(model: bridgeModel))
         bridgeHost.translatesAutoresizingMaskIntoConstraints = false
@@ -109,6 +122,7 @@ final class LearningCoordinator {
             existingRows[language]
                 ?? PhraseTranslation(language: language, text: nil, status: .loading)
         }
+        current.lesson = lesson(for: current)
         state = current
         publish()
 
@@ -117,6 +131,23 @@ final class LearningCoordinator {
         bridgeModel.cancel()
         queue.removeAll()
         enqueueMissingTranslations(generation: generation)
+    }
+
+    func setLearnerLevel(_ level: LearnerLevel, for language: LearningLanguage) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        persistLearnerLevel(level, language)
+        guard var current = state else { return }
+        current.lesson = lesson(for: current)
+        state = current
+        publish()
+    }
+
+    func lesson(for state: LearningDisplayState) -> MicroLesson? {
+        lessonPlanner.plan(
+            from: state,
+            primaryLanguage: languageSelection.primary,
+            level: learnerLevel(languageSelection.primary)
+        )
     }
 
     func modelStatuses() -> [LearningLanguage: String] {
@@ -263,6 +294,7 @@ final class LearningCoordinator {
             current.vocabularyCards[cardID].chineseSenses = Array(entry.senses.prefix(3))
         }
         current.vocabularyCards[cardID].status = .partial
+        current.lesson = lesson(for: current)
         state = current
         beginNextJob()
     }
@@ -273,6 +305,7 @@ final class LearningCoordinator {
         current.phraseTranslations[index].text = text
         current.phraseTranslations[index].status = status
         current.phase = .loadingVocabulary
+        current.lesson = lesson(for: current)
         state = current
     }
 
@@ -282,6 +315,7 @@ final class LearningCoordinator {
         current.vocabularyCards[cardID].terms.removeAll { $0.language == language }
         current.vocabularyCards[cardID].terms.append(term)
         current.vocabularyCards[cardID].status = .partial
+        current.lesson = lesson(for: current)
         state = current
     }
 
@@ -291,6 +325,7 @@ final class LearningCoordinator {
            current.vocabularyCards[cardID].chineseSenses.count < 3 {
             current.vocabularyCards[cardID].chineseSenses.append(sense)
         }
+        current.lesson = lesson(for: current)
         state = current
     }
 
