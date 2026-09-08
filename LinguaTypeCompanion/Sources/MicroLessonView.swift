@@ -4,9 +4,12 @@ final class MicroLessonView: NSView {
     private let stack = NSStackView()
     private(set) var renderedLearningPointCount = 0
     private(set) var isSentenceMapVisible = false
+    private(set) var isReviewVisible = false
     private var savedPoint: LearningPoint?
     private var practices: [String: MicroPractice] = [:]
     var onSave: ((LearningPoint) -> Void)?
+    var onReviewAnswer: ((ReviewItem, Bool) -> Void)?
+    private var reviewingItem: ReviewItem?
 
     override init(frame frameRect: NSRect = .zero) {
         super.init(frame: frameRect)
@@ -26,14 +29,10 @@ final class MicroLessonView: NSView {
     required init?(coder: NSCoder) { nil }
 
     func apply(lesson: MicroLesson?, mode: LearningMode) {
-        stack.arrangedSubviews.forEach {
-            stack.removeArrangedSubview($0)
-            $0.removeFromSuperview()
-        }
+        clearContent()
         renderedLearningPointCount = 0
         isSentenceMapVisible = false
-        savedPoint = nil
-        practices.removeAll()
+        isReviewVisible = false
         guard let lesson else { isHidden = true; return }
         isHidden = false
 
@@ -83,6 +82,46 @@ final class MicroLessonView: NSView {
             button.setAccessibilityLabel("加入复习")
             stack.addArrangedSubview(button)
         }
+    }
+
+    func showReview(_ item: ReviewItem) {
+        clearContent()
+        isHidden = false
+        isReviewVisible = true
+        reviewingItem = item
+        let title = NSTextField(labelWithString: "今日复习")
+        title.font = .systemFont(ofSize: 10, weight: .semibold)
+        title.textColor = NSColor(calibratedRed: 0.86, green: 0.57, blue: 0.67, alpha: 1)
+        let expression = NSTextField(wrappingLabelWithString: item.point.targetExpression)
+        expression.font = .systemFont(ofSize: 20, weight: .semibold)
+        let meaning = NSTextField(wrappingLabelWithString: item.point.chineseMeaning)
+        meaning.font = .systemFont(ofSize: 13, weight: .regular)
+        meaning.textColor = .secondaryLabelColor
+        let actions = NSStackView()
+        actions.orientation = .horizontal
+        actions.spacing = 8
+        let retry = NSButton(title: "还需复习", target: self, action: #selector(answerReview(_:)))
+        retry.tag = 0
+        let remembered = NSButton(title: "记住了", target: self, action: #selector(answerReview(_:)))
+        remembered.tag = 1
+        actions.addArrangedSubview(retry)
+        actions.addArrangedSubview(remembered)
+        [title, expression, meaning, actions].forEach { stack.addArrangedSubview($0) }
+    }
+
+    func performReviewAnswer(isCorrect: Bool) {
+        guard let item = reviewingItem else { return }
+        onReviewAnswer?(item, isCorrect)
+    }
+
+    private func clearContent() {
+        stack.arrangedSubviews.forEach {
+            stack.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+        savedPoint = nil
+        practices.removeAll()
+        reviewingItem = nil
     }
 
     private func section(title: String, color: NSColor, lines: [String]) -> NSView {
@@ -139,5 +178,9 @@ final class MicroLessonView: NSView {
         guard let choice = sender.identifier?.rawValue,
               let practice = practices[choice] else { return }
         sender.title = practice.isCorrect(choice: choice) ? "✓ \(choice)" : "再试一次"
+    }
+
+    @objc private func answerReview(_ sender: NSButton) {
+        performReviewAnswer(isCorrect: sender.tag == 1)
     }
 }

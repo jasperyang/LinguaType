@@ -30,6 +30,7 @@ final class LearningPanelContentView: NSView {
     var sourceMaximumLines: Int { sourceSection.maximumNumberOfLines }
     var vocabularyColumnCount: Int { vocabularyGrid.columnCount }
     var vocabularyLanguageCodes: [String] { vocabularyGrid.renderedLanguageCodes }
+    var isReviewVisible: Bool { microLessonView.isReviewVisible }
     var preferredHeight: CGFloat {
         layoutSubtreeIfNeeded()
         return rootStack.fittingSize.height
@@ -64,6 +65,8 @@ final class LearningPanelContentView: NSView {
         currentSelection = selection
         currentPinned = isPinned
         sourceSection.apply(sourcePhrase: state.sourcePhrase)
+        sourceSection.isHidden = false
+        translationSection.isHidden = false
         headerView.apply(selection: selection, isPinned: isPinned)
         translationSection.apply(
             translations: state.phraseTranslations,
@@ -103,6 +106,22 @@ final class LearningPanelContentView: NSView {
 
     func performPinAction() {
         headerView.performPinAction()
+    }
+
+    func showReview(
+        _ item: ReviewItem,
+        onAnswer: @escaping (ReviewItem, Bool) -> Void
+    ) {
+        sourceSection.isHidden = true
+        translationSection.isHidden = true
+        learnLabel.isHidden = true
+        scrollView.isHidden = true
+        microLessonView.onReviewAnswer = onAnswer
+        microLessonView.showReview(item)
+    }
+
+    func performReviewAnswer(isCorrect: Bool) {
+        microLessonView.performReviewAnswer(isCorrect: isCorrect)
     }
 
     func cancelTransientFeedback() {

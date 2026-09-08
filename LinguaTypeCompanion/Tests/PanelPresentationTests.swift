@@ -45,6 +45,31 @@ enum PanelPresentationTests {
             "vocabulary cards occupy non-overlapping regions"
         )
 
+        let contentReviewItem = ReviewItem(
+            id: UUID(),
+            point: LearningPoint(
+                id: "review",
+                language: .english,
+                kind: .expression,
+                targetExpression: "work in London",
+                pronunciation: nil,
+                chineseMeaning: "在伦敦工作",
+                pattern: nil,
+                example: nil,
+                evidenceID: "review"
+            ),
+            dueDate: Date(),
+            intervalIndex: 0,
+            lastAnswerCorrect: nil
+        )
+        var reviewAnswer: Bool?
+        view.showReview(contentReviewItem) { _, isCorrect in reviewAnswer = isCorrect }
+        view.performReviewAnswer(isCorrect: false)
+        Test.expect(
+            view.isReviewVisible && reviewAnswer == false,
+            "panel content presents and answers a review card"
+        )
+
         let scheduler = TestPanelScheduler()
         let timer = PanelAutoHideController(interval: 12, scheduler: scheduler)
         var hidden = false
@@ -97,6 +122,31 @@ enum PanelPresentationTests {
         panel.performPinAction()
         integrationScheduler.advance(by: 12)
         Test.expect(!panel.isVisible, "unpinning restores the twelve-second auto-hide")
+
+        let panelReviewItem = ReviewItem(
+            id: UUID(),
+            point: LearningPoint(
+                id: "review-panel",
+                language: .english,
+                kind: .expression,
+                targetExpression: "work in London",
+                pronunciation: nil,
+                chineseMeaning: "在伦敦工作",
+                pattern: nil,
+                example: nil,
+                evidenceID: "review-panel"
+            ),
+            dueDate: Date(),
+            intervalIndex: 0,
+            lastAnswerCorrect: nil
+        )
+        var reviewAnswered = false
+        panel.showReview(panelReviewItem) { _, _ in reviewAnswered = true }
+        panel.performReviewAnswer(isCorrect: true)
+        Test.expect(
+            reviewAnswered && !panel.isPinned,
+            "review answer restores the panel's previous pin state"
+        )
     }
 
     private static func fixture() -> LearningDisplayState {

@@ -35,7 +35,18 @@ final class LinguaTypeAppDelegate: NSObject, NSApplicationDelegate {
                 self?.reviewStore.dueItems(now: Date()).count ?? 0
             },
             showReview: { [weak self] in
-                self?.panel.showAttachedToMouse()
+                guard let self,
+                      let item = self.reviewStore.dueItems(now: Date()).first else {
+                    self?.panel.showAttachedToMouse()
+                    return
+                }
+                self.panel.showReview(item) { [weak self] item, isCorrect in
+                    self?.reviewStore.answer(
+                        itemID: item.id,
+                        isCorrect: isCorrect,
+                        now: Date()
+                    )
+                }
             },
             clearCache: { [weak self] in self?.coordinator.clearDictionaryCache() },
             showPrivacy: { Self.showPrivacyNotice() }

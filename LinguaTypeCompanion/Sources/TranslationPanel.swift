@@ -36,6 +36,7 @@ final class TranslationPanel: NSObject {
     private var lastState: LearningDisplayState?
     private var lastAnchor: NSRect?
     private var autoHideStarted = false
+    private var pinStateBeforeReview: Bool?
 
     init(
         coordinator: LearningCoordinator,
@@ -91,6 +92,7 @@ final class TranslationPanel: NSObject {
 
     var isVisible: Bool { panel.isVisible }
     var isPinned: Bool { autoHide.isPinned }
+    var isReviewVisible: Bool { content.isReviewVisible }
 
     func toggleAttachedToMouse() {
         if panel.isVisible {
@@ -117,6 +119,24 @@ final class TranslationPanel: NSObject {
 
     func performPinAction() {
         content.performPinAction()
+    }
+
+    func showReview(
+        _ item: ReviewItem,
+        onAnswer: @escaping (ReviewItem, Bool) -> Void
+    ) {
+        pinStateBeforeReview = autoHide.isPinned
+        autoHide.setPinned(true)
+        content.showReview(item) { [weak self] answeredItem, isCorrect in
+            onAnswer(answeredItem, isCorrect)
+            self?.dismissReview()
+        }
+        position(near: lastAnchor ?? currentMouseRect())
+        panel.orderFrontRegardless()
+    }
+
+    func performReviewAnswer(isCorrect: Bool) {
+        content.performReviewAnswer(isCorrect: isCorrect)
     }
 
     func togglePinned() {
@@ -172,6 +192,23 @@ final class TranslationPanel: NSObject {
             selection: coordinator?.languageSelection ?? .default,
             isPinned: autoHide.isPinned
         )
+    }
+
+    private func dismissReview() {
+        if let previous = pinStateBeforeReview {
+            autoHide.setPinned(previous)
+        }
+        pinStateBeforeReview = nil
+        guard let lastState else {
+            hide()
+            return
+        }
+        refreshContent(with: lastState)
+        position(near: lastAnchor ?? currentMouseRect())
+        if !autoHide.isPinned {
+            autoHideStarted = false
+            startAutoHideIfNeeded(for: lastState)
+        }
     }
 
     private func startAutoHideIfNeeded(for state: LearningDisplayState) {

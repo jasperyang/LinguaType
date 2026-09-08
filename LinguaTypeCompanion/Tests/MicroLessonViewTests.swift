@@ -33,5 +33,21 @@ enum MicroLessonViewTests {
             view.renderedLearningPointCount == 1 && view.isSentenceMapVisible,
             "deep mode shows reliable sentence map"
         )
+
+        let review = ReviewItem(
+            id: UUID(),
+            point: point,
+            dueDate: Date(),
+            intervalIndex: 0,
+            lastAnswerCorrect: nil
+        )
+        var answer: Bool?
+        view.onReviewAnswer = { _, isCorrect in answer = isCorrect }
+        view.showReview(review)
+        view.performReviewAnswer(isCorrect: true)
+        Test.expect(
+            view.isReviewVisible && answer == true,
+            "review card emits the user's answer"
+        )
     }
 }
