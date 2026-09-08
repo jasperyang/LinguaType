@@ -3,11 +3,13 @@ import Cocoa
 final class PanelHeaderView: NSView {
     var onSelectionChange: ((LanguageSelection) -> Void)?
     var onTogglePin: (() -> Void)?
+    var onModeChange: ((LearningMode) -> Void)?
 
     private let brandLabel = NSTextField(labelWithString: "LINGUATYPE")
     private let subtitleLabel = NSTextField(labelWithString: "Write · Translate · Learn")
     private let languageButton = NSButton()
     private let pinButton = NSButton()
+    private let modeControl = NSSegmentedControl(labels: ["极简", "深度"], trackingMode: .selectOne, target: nil, action: nil)
     private let languagePopover = NSPopover()
     private(set) var selection: LanguageSelection
 
@@ -32,6 +34,7 @@ final class PanelHeaderView: NSView {
         )
         pinButton.contentTintColor = isPinned ? .controlAccentColor : .secondaryLabelColor
         pinButton.setAccessibilityLabel(isPinned ? "取消固定浮窗" : "固定浮窗")
+        modeControl.selectedSegment = LinguaTypePreferences.learningMode() == .minimal ? 0 : 1
     }
 
     func performPinAction() {
@@ -72,7 +75,13 @@ final class PanelHeaderView: NSView {
         pinButton.bezelStyle = .inline
         pinButton.imagePosition = .imageOnly
 
-        let stack = NSStackView(views: [identity, spacer, languageButton, pinButton])
+        modeControl.target = self
+        modeControl.action = #selector(changeMode(_:))
+        modeControl.segmentStyle = .texturedRounded
+        modeControl.font = .systemFont(ofSize: 9, weight: .medium)
+        modeControl.setAccessibilityLabel("切换学习页面模式")
+
+        let stack = NSStackView(views: [identity, spacer, languageButton, modeControl, pinButton])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 8
@@ -107,5 +116,11 @@ final class PanelHeaderView: NSView {
 
     @objc private func togglePin() {
         onTogglePin?()
+    }
+
+    @objc private func changeMode(_ sender: NSSegmentedControl) {
+        let mode: LearningMode = sender.selectedSegment == 1 ? .deep : .minimal
+        LinguaTypePreferences.setLearningMode(mode)
+        onModeChange?(mode)
     }
 }

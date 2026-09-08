@@ -6,9 +6,14 @@ final class LearningPanelContentView: NSView {
     private let scrollView = NSScrollView()
     private let learnLabel = NSTextField(labelWithString: "LEARN")
     private let vocabularyGrid = VocabularyGridView()
+    private let microLessonView = MicroLessonView()
+    private let reviewStore = ReviewStore()
     private let headerView: PanelHeaderView
     private let translationSection: TranslationSectionView
     private var scrollHeightConstraint: NSLayoutConstraint?
+    private var currentState: LearningDisplayState?
+    private var currentSelection: LanguageSelection = .default
+    private var currentPinned = false
 
     private(set) var phraseRows: [NSTextField] = []
     private(set) var vocabularyCardViews: [NSView] = []
@@ -54,6 +59,9 @@ final class LearningPanelContentView: NSView {
         selection: LanguageSelection,
         isPinned: Bool
     ) {
+        currentState = state
+        currentSelection = selection
+        currentPinned = isPinned
         sourceSection.apply(sourcePhrase: state.sourcePhrase)
         headerView.apply(selection: selection, isPinned: isPinned)
         translationSection.apply(
@@ -62,6 +70,11 @@ final class LearningPanelContentView: NSView {
             sourcePhrase: state.sourcePhrase
         )
         phraseRows = translationSection.phraseLabels
+
+        microLessonView.apply(
+            lesson: state.lesson,
+            mode: LinguaTypePreferences.learningMode()
+        )
 
         let availableWidth = max(0, bounds.width - 28)
         vocabularyGrid.apply(
@@ -73,8 +86,9 @@ final class LearningPanelContentView: NSView {
         vocabularyGrid.layoutSubtreeIfNeeded()
         let learningHeight = min(300, vocabularyGrid.fittingSize.height)
         scrollHeightConstraint?.constant = max(1, learningHeight)
-        scrollView.isHidden = vocabularyCardViews.isEmpty
-        learnLabel.isHidden = vocabularyCardViews.isEmpty
+        let hasLesson = state.lesson != nil
+        scrollView.isHidden = hasLesson || vocabularyCardViews.isEmpty
+        learnLabel.isHidden = hasLesson || vocabularyCardViews.isEmpty
     }
 
     func toggleReference(_ language: LearningLanguage) {
@@ -100,6 +114,17 @@ final class LearningPanelContentView: NSView {
         }
         headerView.onTogglePin = { [weak self] in
             self?.onTogglePin?()
+        }
+        headerView.onModeChange = { [weak self] _ in
+            guard let self, let state = self.currentState else { return }
+            self.apply(
+                state,
+                selection: self.currentSelection,
+                isPinned: self.currentPinned
+            )
+        }
+        microLessonView.onSave = { [weak self] point in
+            self?.reviewStore.save(point, now: Date())
         }
     }
 
@@ -143,6 +168,7 @@ final class LearningPanelContentView: NSView {
         rootStack.addArrangedSubview(headerView)
         rootStack.addArrangedSubview(sourceSection)
         rootStack.addArrangedSubview(translationSection)
+        rootStack.addArrangedSubview(microLessonView)
         rootStack.addArrangedSubview(learnLabel)
         rootStack.addArrangedSubview(scrollView)
         addSubview(rootStack)
@@ -154,6 +180,7 @@ final class LearningPanelContentView: NSView {
             headerView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             sourceSection.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             translationSection.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
+            microLessonView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             learnLabel.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
             scrollView.widthAnchor.constraint(equalTo: rootStack.widthAnchor, constant: -28),
         ])
