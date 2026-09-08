@@ -8,6 +8,7 @@ private final class FocusedPanelClipboard: TranslationClipboardWriting {
 enum FocusedPanelViewTests {
     static func run() {
         testLanguagePickerRules()
+        testLanguagePickerLearnerLevel()
         testFocusedTranslationPresentation()
         testReferenceExpansionAndCopy()
         testSourceAndVocabularyHierarchy()
@@ -34,6 +35,17 @@ enum FocusedPanelViewTests {
         Test.expect(
             emitted?.selected.contains(.english) == true,
             "language picker cannot uncheck the primary language"
+        )
+    }
+
+    private static func testLanguagePickerLearnerLevel() {
+        let picker = LanguagePickerView(selection: .default)
+        var emitted: (LearnerLevel, LearningLanguage)?
+        picker.onLearnerLevelChange = { level, language in emitted = (level, language) }
+        picker.setLearnerLevel(.advanced, for: .japanese)
+        Test.expect(
+            emitted?.0 == .advanced && emitted?.1 == .japanese,
+            "language picker exposes a learner level for each selected language"
         )
     }
 

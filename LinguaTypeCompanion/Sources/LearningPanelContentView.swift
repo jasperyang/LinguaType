@@ -19,6 +19,7 @@ final class LearningPanelContentView: NSView {
     private(set) var vocabularyCardViews: [NSView] = []
     var onSelectionChange: ((LanguageSelection) -> Void)?
     var onTogglePin: (() -> Void)?
+    var onLearnerLevelChange: ((LearnerLevel, LearningLanguage) -> Void)?
 
     var languageButtonTitle: String { headerView.languageButtonTitle }
     var primaryLanguage: LearningLanguage? { translationSection.primaryLanguage }
@@ -122,6 +123,9 @@ final class LearningPanelContentView: NSView {
                 selection: self.currentSelection,
                 isPinned: self.currentPinned
             )
+        }
+        headerView.onLearnerLevelChange = { [weak self] level, language in
+            self?.onLearnerLevelChange?(level, language)
         }
         microLessonView.onSave = { [weak self] point in
             self?.reviewStore.save(point, now: Date())

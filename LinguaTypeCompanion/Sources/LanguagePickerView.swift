@@ -2,6 +2,7 @@ import Cocoa
 
 final class LanguagePickerView: NSView {
     var onChange: ((LanguageSelection) -> Void)?
+    var onLearnerLevelChange: ((LearnerLevel, LearningLanguage) -> Void)?
     private(set) var selection: LanguageSelection
 
     private let stack = NSStackView()
@@ -30,6 +31,12 @@ final class LanguagePickerView: NSView {
         selection.setPrimary(language)
         rebuildRows()
         onChange?(selection)
+    }
+
+    func setLearnerLevel(_ level: LearnerLevel, for language: LearningLanguage) {
+        LinguaTypePreferences.setLearnerLevel(level, for: language)
+        onLearnerLevelChange?(level, language)
+        rebuildRows()
     }
 
     private func build() {
@@ -98,9 +105,19 @@ final class LanguagePickerView: NSView {
         role.font = .systemFont(ofSize: 9, weight: .medium)
         role.textColor = .secondaryLabelColor
 
+        let level = NSPopUpButton(frame: .zero, pullsDown: false)
+        level.addItems(withTitles: LearnerLevel.allCases.map(\.displayName))
+        level.selectItem(withTitle: LinguaTypePreferences.learnerLevel(for: language).displayName)
+        level.tag = tag
+        level.target = self
+        level.action = #selector(changeLearnerLevel(_:))
+        level.font = .systemFont(ofSize: 9, weight: .medium)
+        level.setAccessibilityLabel("\(language.displayName)学习等级")
+
         row.addArrangedSubview(checkbox)
         row.addArrangedSubview(name)
         row.addArrangedSubview(role)
+        row.addArrangedSubview(level)
         row.heightAnchor.constraint(greaterThanOrEqualToConstant: 34).isActive = true
         return row
     }
@@ -116,5 +133,16 @@ final class LanguagePickerView: NSView {
     @objc private func selectPrimary(_ sender: NSButton) {
         guard LearningLanguage.displayOrder.indices.contains(sender.tag) else { return }
         makePrimary(LearningLanguage.displayOrder[sender.tag])
+    }
+
+    @objc private func changeLearnerLevel(_ sender: NSPopUpButton) {
+        guard LearningLanguage.displayOrder.indices.contains(sender.tag),
+              LearnerLevel.allCases.indices.contains(sender.indexOfSelectedItem) else {
+            return
+        }
+        setLearnerLevel(
+            LearnerLevel.allCases[sender.indexOfSelectedItem],
+            for: LearningLanguage.displayOrder[sender.tag]
+        )
     }
 }

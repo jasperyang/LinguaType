@@ -4,6 +4,7 @@ final class PanelHeaderView: NSView {
     var onSelectionChange: ((LanguageSelection) -> Void)?
     var onTogglePin: (() -> Void)?
     var onModeChange: ((LearningMode) -> Void)?
+    var onLearnerLevelChange: ((LearnerLevel, LearningLanguage) -> Void)?
 
     private let brandLabel = NSTextField(labelWithString: "LINGUATYPE")
     private let subtitleLabel = NSTextField(labelWithString: "Write · Translate · Learn")
@@ -105,9 +106,12 @@ final class PanelHeaderView: NSView {
             self.languageButton.title = updatedSelection.primary.displayName
             self.onSelectionChange?(updatedSelection)
         }
+        picker.onLearnerLevelChange = { [weak self] level, language in
+            self?.onLearnerLevelChange?(level, language)
+        }
         let controller = NSViewController()
         controller.view = picker
-        controller.preferredContentSize = NSSize(width: 248, height: 176)
+        controller.preferredContentSize = NSSize(width: 290, height: 176)
         languagePopover.contentViewController = controller
         languagePopover.behavior = .transient
         languagePopover.animates = true

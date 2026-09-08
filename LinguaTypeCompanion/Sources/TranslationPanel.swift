@@ -81,6 +81,9 @@ final class TranslationPanel: NSObject {
         content.onSelectionChange = { [weak coordinator] selection in
             coordinator?.setLanguageSelection(selection)
         }
+        content.onLearnerLevelChange = { [weak coordinator] level, language in
+            coordinator?.setLearnerLevel(level, for: language)
+        }
         content.onTogglePin = { [weak self] in self?.togglePinned() }
         visualEffect.onEnter = { [weak autoHide] in autoHide?.pointerEntered() }
         visualEffect.onExit = { [weak autoHide] in autoHide?.pointerExited() }
