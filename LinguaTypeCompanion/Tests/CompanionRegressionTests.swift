@@ -10,6 +10,7 @@ enum CompanionRegressionTests {
         _ = NSApplication.shared
 
         LearningModelsTests.run()
+        MicroLessonPlannerTests.run()
         LanguageSelectionTests.run()
         MenuBarTests.run()
         VocabularyExtractorTests.run()
