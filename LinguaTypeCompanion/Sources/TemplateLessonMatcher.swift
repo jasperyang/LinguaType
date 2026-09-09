@@ -3,50 +3,100 @@ import Foundation
 struct LessonPlace: Equatable {
     let source: String
     let target: [LearningLanguage: String]
+    let pronunciation: [LearningLanguage: String]
+
+    init(
+        source: String,
+        target: [LearningLanguage: String],
+        pronunciation: [LearningLanguage: String] = [:]
+    ) {
+        self.source = source
+        self.target = target
+        self.pronunciation = pronunciation
+    }
 
     static let tokyo = LessonPlace(
         source: "东京",
-        target: [.japanese: "東京", .french: "Tokyo", .english: "Tokyo"]
+        target: [.japanese: "東京", .french: "Tokyo", .english: "Tokyo"],
+        pronunciation: [.japanese: "とうきょう"]
     )
     static let paris = LessonPlace(
         source: "巴黎",
-        target: [.japanese: "パリ", .french: "Paris", .english: "Paris"]
+        target: [.japanese: "パリ", .french: "Paris", .english: "Paris"],
+        pronunciation: [.japanese: "パリ"]
     )
     static let london = LessonPlace(
         source: "伦敦",
-        target: [.japanese: "ロンドン", .french: "Londres", .english: "London"]
+        target: [.japanese: "ロンドン", .french: "Londres", .english: "London"],
+        pronunciation: [.japanese: "ロンドン"]
     )
     static let osaka = LessonPlace(
         source: "大阪",
-        target: [.japanese: "大阪", .french: "Osaka", .english: "Osaka"]
+        target: [.japanese: "大阪", .french: "Osaka", .english: "Osaka"],
+        pronunciation: [.japanese: "おおさか"]
     )
     static let lyon = LessonPlace(
         source: "里昂",
-        target: [.japanese: "リヨン", .french: "Lyon", .english: "Lyon"]
+        target: [.japanese: "リヨン", .french: "Lyon", .english: "Lyon"],
+        pronunciation: [.japanese: "リヨン"]
+    )
+    static let shanghai = LessonPlace(
+        source: "上海",
+        target: [.japanese: "上海", .french: "Shanghai", .english: "Shanghai"],
+        pronunciation: [.japanese: "シャンハイ"]
+    )
+    static let beijing = LessonPlace(
+        source: "北京",
+        target: [.japanese: "北京", .french: "Pékin", .english: "Beijing"],
+        pronunciation: [.japanese: "ペキン"]
+    )
+    static let kyoto = LessonPlace(
+        source: "京都",
+        target: [.japanese: "京都", .french: "Kyoto", .english: "Kyoto"],
+        pronunciation: [.japanese: "きょうと"]
+    )
+    static let berlin = LessonPlace(
+        source: "柏林",
+        target: [.japanese: "ベルリン", .french: "Berlin", .english: "Berlin"],
+        pronunciation: [.japanese: "ベルリン"]
     )
 }
 
 struct LessonAction: Equatable {
     let source: String
     let target: [LearningLanguage: String]
+    let pronunciation: [LearningLanguage: String]
+
+    init(
+        source: String,
+        target: [LearningLanguage: String],
+        pronunciation: [LearningLanguage: String] = [:]
+    ) {
+        self.source = source
+        self.target = target
+        self.pronunciation = pronunciation
+    }
 
     static let live = LessonAction(
         source: "生活",
-        target: [.japanese: "生活する", .french: "vis", .english: "live"]
+        target: [.japanese: "生活する", .french: "vis", .english: "live"],
+        pronunciation: [.japanese: "せいかつする"]
     )
     static let work = LessonAction(
         source: "工作",
-        target: [.japanese: "働く", .french: "travaille", .english: "work"]
+        target: [.japanese: "働く", .french: "travaille", .english: "work"],
+        pronunciation: [.japanese: "はたらく"]
     )
     static let study = LessonAction(
         source: "学习",
-        target: [.japanese: "勉強する", .french: "étudie", .english: "study"]
+        target: [.japanese: "勉強する", .french: "étudie", .english: "study"],
+        pronunciation: [.japanese: "べんきょうする"]
     )
 }
 
 struct TemplateLessonMatcher {
     static let builtIn = TemplateLessonMatcher(
-        places: [.tokyo, .paris, .london, .osaka, .lyon],
+        places: [.tokyo, .paris, .london, .osaka, .lyon, .shanghai, .beijing, .kyoto, .berlin],
         actions: [.live, .work, .study]
     )
 
@@ -133,7 +183,7 @@ struct TemplateLessonMatcher {
                 language: language,
                 kind: .pattern,
                 targetExpression: targetPhrase,
-                pronunciation: nil,
+                pronunciation: pronunciation(place: place, action: action, language: language),
                 chineseMeaning: sourcePhrase,
                 pattern: pattern(for: language),
                 example: example(for: language),
@@ -157,6 +207,19 @@ struct TemplateLessonMatcher {
         case .french: "Je + 动词 + à + 地点"
         case .english: "I + 动词 + in + 地点"
         }
+    }
+
+    private func pronunciation(
+        place: LessonPlace,
+        action: LessonAction,
+        language: LearningLanguage
+    ) -> String? {
+        guard language == .japanese,
+              let placeReading = place.pronunciation[language],
+              let actionReading = action.pronunciation[language] else {
+            return nil
+        }
+        return "\(placeReading)で \(actionReading)"
     }
 
     private func example(for language: LearningLanguage) -> LearningExample {

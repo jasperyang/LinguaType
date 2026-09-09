@@ -103,11 +103,18 @@ enum MicroLessonPlannerTests {
             language: .english,
             level: .beginner
         )
+        let shanghai = matcher.candidates(
+            sourcePhrase: "在上海工作",
+            primaryTranslation: "上海で働く",
+            language: .japanese,
+            level: .beginner
+        )
 
         Test.expect(
             japanese.first?.point.evidenceID == "ja.place-action"
                 && french.first?.point.evidenceID == "fr.place-action"
-                && english.first?.point.evidenceID == "en.place-action",
+                && english.first?.point.evidenceID == "en.place-action"
+                && shanghai.first?.point.pronunciation == "シャンハイで はたらく",
             "known place-action slots create language-specific local lessons"
         )
     }
